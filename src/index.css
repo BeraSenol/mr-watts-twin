@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/*
+  Design tokens. Tailwind v4 turns every --color-* into utilities
+  (bg-surface, text-label, border-separator …) and --font-sans into font-sans.
+  Values follow Apple's dark-mode system colours.
+*/
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, system-ui, sans-serif;
+
+  --color-canvas: #000000;
+  --color-surface: #1c1c1e;
+  --color-surface-raised: #2c2c2e;
+  --color-separator: rgb(84 84 88 / 0.6);
+
+  --color-label: #f5f5f7;
+  --color-label-secondary: #98989d;
+  --color-label-tertiary: #636366;
+
+  --color-accent: #0a84ff;
+  --color-danger: #ff453a;
+  --color-success: #30d158;
+  --color-glow: #ffd60a;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-canvas text-label font-sans antialiased;
+}
