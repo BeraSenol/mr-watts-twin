@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
 import { playTick } from './playTick'
 import { useElementWidth } from './useElementWidth'
 
@@ -15,6 +15,13 @@ const dayFormat = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'num
 
 function clamp(step: number) {
   return Math.max(-RANGE, Math.min(RANGE, step))
+}
+
+function isTyping(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+  )
 }
 
 function startOfDay(time: number) {
@@ -49,6 +56,18 @@ export function TimeMachine() {
   const frame = useRef(0)
   const wheelSnap = useRef(0)
   const glide = useRef({ active: false, to: 0 })
+
+  const keyHandler = useRef(onKeyDown)
+
+  useEffect(() => {
+    keyHandler.current = onKeyDown
+  })
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => keyHandler.current(event)
+    window.addEventListener('keydown', listener)
+    return () => window.removeEventListener('keydown', listener)
+  }, [])
 
   useEffect(() => () => cancelAnimationFrame(frame.current), [])
 
@@ -161,6 +180,7 @@ export function TimeMachine() {
   }
 
   function onKeyDown(event: KeyboardEvent) {
+    if (isTyping(event.target)) return
     const current = glide.current.active ? glide.current.to : Math.round(positionRef.current)
     const byWeek = event.metaKey || event.ctrlKey
     let next: number
@@ -169,7 +189,7 @@ export function TimeMachine() {
       next = byWeek ? (Math.floor(current / STEPS_PER_WEEK) + 1) * STEPS_PER_WEEK : current + 1
     } else if (event.key === 'ArrowLeft') {
       next = byWeek ? (Math.ceil(current / STEPS_PER_WEEK) - 1) * STEPS_PER_WEEK : current - 1
-    } else if (event.key === 'Home') {
+    } else if (event.key === 'Home' || event.key === ' ') {
       next = 0
     } else {
       return
@@ -262,7 +282,6 @@ export function TimeMachine() {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
         onWheel={onWheel}
-        onKeyDown={onKeyDown}
         className="relative cursor-grab touch-none text-label outline-none select-none active:cursor-grabbing"
         style={{ height: HEIGHT + LABEL_HEIGHT }}
       >
