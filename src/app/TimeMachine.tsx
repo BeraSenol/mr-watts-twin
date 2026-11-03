@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { playTick } from './playTick'
 import { useElementWidth } from './useElementWidth'
 
@@ -58,10 +58,20 @@ export function TimeMachine() {
   const glide = useRef({ active: false, to: 0 })
 
   const keyHandler = useRef(onKeyDown)
+  const wheelHandler = useRef(onWheel)
 
   useEffect(() => {
     keyHandler.current = onKeyDown
+    wheelHandler.current = onWheel
   })
+
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const listener = (event: WheelEvent) => wheelHandler.current(event)
+    element.addEventListener('wheel', listener, { passive: false })
+    return () => element.removeEventListener('wheel', listener)
+  }, [])
 
   useEffect(() => {
     const listener = (event: KeyboardEvent) => keyHandler.current(event)
@@ -84,16 +94,16 @@ export function TimeMachine() {
     glide.current.active = false
   }
 
-  function glideTo(target: number) {
+  function glideTo(target: number, duration?: number) {
     stop()
     const from = positionRef.current
     const to = clamp(target)
-    const duration = 180 + Math.min(Math.abs(to - from) * 4, 520)
+    const time = duration ?? 180 + Math.min(Math.abs(to - from) * 4, 520)
     const start = performance.now()
     glide.current = { active: true, to }
 
-    function animate(time: number) {
-      const progress = Math.min((time - start) / duration, 1)
+    function animate(now: number) {
+      const progress = Math.min((now - start) / time, 1)
       const eased = 1 - (1 - progress) ** 3
       moveTo(from + (to - from) * eased)
       if (progress < 1) frame.current = requestAnimationFrame(animate)
@@ -104,24 +114,15 @@ export function TimeMachine() {
   }
 
   function snap() {
-    moveTo(Math.round(positionRef.current))
+    glideTo(Math.round(positionRef.current))
   }
 
-  function fling(initialVelocity: number) {
-    let velocity = initialVelocity
-    let last = performance.now()
-
-    function roll(time: number) {
-      const elapsed = time - last
-      last = time
-      velocity *= FRICTION ** (elapsed / 16)
-      const reached = moveTo(positionRef.current + velocity * elapsed)
-
-      if (Math.abs(velocity) < MIN_VELOCITY || Math.abs(reached) === RANGE) return snap()
-      frame.current = requestAnimationFrame(roll)
-    }
-
-    frame.current = requestAnimationFrame(roll)
+  function fling(velocity: number) {
+    const from = positionRef.current
+    const projected = from + (velocity * 16) / (1 - FRICTION)
+    const to = clamp(Math.round(projected))
+    const duration = (3 * Math.abs(to - from)) / Math.abs(velocity)
+    glideTo(to, Math.min(Math.max(duration, 250), 2500))
   }
 
   function onPointerDown(event: PointerEvent) {
@@ -172,9 +173,11 @@ export function TimeMachine() {
   }
 
   function onWheel(event: WheelEvent) {
-    if (event.deltaX === 0) return
+    event.preventDefault()
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+    if (delta === 0) return
     stop()
-    moveTo(positionRef.current + event.deltaX / spacing)
+    moveTo(positionRef.current + delta / spacing)
     clearTimeout(wheelSnap.current)
     wheelSnap.current = setTimeout(snap, 120)
   }
@@ -281,7 +284,6 @@ export function TimeMachine() {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
-        onWheel={onWheel}
         className="relative cursor-grab touch-none text-label outline-none select-none active:cursor-grabbing"
         style={{ height: HEIGHT + LABEL_HEIGHT }}
       >

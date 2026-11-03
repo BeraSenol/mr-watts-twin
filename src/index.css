@@ -25,6 +25,7 @@
 
 html {
   color-scheme: dark;
+  overscroll-behavior-x: none;
 }
 
 body {
