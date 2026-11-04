@@ -57,28 +57,6 @@ export function TimeMachine() {
   const wheelSnap = useRef(0)
   const glide = useRef({ active: false, to: 0 })
 
-  const keyHandler = useRef(onKeyDown)
-  const wheelHandler = useRef(onWheel)
-
-  useEffect(() => {
-    keyHandler.current = onKeyDown
-    wheelHandler.current = onWheel
-  })
-
-  useEffect(() => {
-    const element = ref.current
-    if (!element) return
-    const listener = (event: WheelEvent) => wheelHandler.current(event)
-    element.addEventListener('wheel', listener, { passive: false })
-    return () => element.removeEventListener('wheel', listener)
-  }, [])
-
-  useEffect(() => {
-    const listener = (event: KeyboardEvent) => keyHandler.current(event)
-    window.addEventListener('keydown', listener)
-    return () => window.removeEventListener('keydown', listener)
-  }, [])
-
   useEffect(() => () => cancelAnimationFrame(frame.current), [])
 
   function moveTo(next: number) {
@@ -202,6 +180,27 @@ export function TimeMachine() {
     glideTo(next)
   }
 
+  const keyHandler = useRef(onKeyDown)
+  const wheelHandler = useRef(onWheel)
+
+  useEffect(() => {
+    keyHandler.current = onKeyDown
+    wheelHandler.current = onWheel
+  })
+
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const listener = (event: WheelEvent) => wheelHandler.current(event)
+    element.addEventListener('wheel', listener, { passive: false })
+    return () => element.removeEventListener('wheel', listener)
+  }, [])
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => keyHandler.current(event)
+    window.addEventListener('keydown', listener)
+    return () => window.removeEventListener('keydown', listener)
+  }, [])
 
   const atNow = Math.abs(position) < 0.5
   const base = Math.floor(position)

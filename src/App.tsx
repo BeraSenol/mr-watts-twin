@@ -1,9 +1,10 @@
 import { Shell } from './app/Shell'
+import { Overview } from './features/overview/Overview'
 
 function App() {
   return (
     <Shell>
-      <p className="text-label-secondary">Overview content</p>
+      <Overview />
     </Shell>
   )
 }
