@@ -1,7 +1,7 @@
-import type { LucideIcon } from 'lucide-react'
+import type { ComponentType, SVGProps } from 'react'
 
 type Props = {
-  icon: LucideIcon
+  icon: ComponentType<SVGProps<SVGSVGElement>>
   tone: string
   label: string
   value: string
@@ -15,7 +15,7 @@ export function StatPill({ icon: Icon, tone, label, value, detail }: Props) {
       className="flex shrink-0 items-center gap-3 rounded-full py-1.5 pr-5 pl-1.5 transition-colors hover:bg-white/[0.06]"
     >
       <span className={`grid size-9 place-items-center rounded-full ${tone}`}>
-        <Icon size={18} strokeWidth={2} />
+        <Icon className="h-[18px] w-[22px]" />
       </span>
       <span className="flex flex-col leading-tight">
         <span className="text-[15px] font-semibold tracking-tight">{value}</span>

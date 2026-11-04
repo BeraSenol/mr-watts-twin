@@ -1,8 +1,7 @@
-import { Lightbulb } from '../../components/icons/Lightbulb'
-import { DoorState, LightPower } from '../../model/types'
+import { DoorState } from '../../model/types'
 
-const LINE = 'rgb(255 255 255 / 0.45)'
-const FAINT = 'rgb(255 255 255 / 0.18)'
+const LINE = '#737373'
+const FAINT = '#2e2e2e'
 
 const ROOM = { x: 40, y: 40, w: 1120, h: 440, r: 40 }
 const DOOR = { from: 820, to: 900 }
@@ -36,6 +35,11 @@ function squircle(x: number, y: number, w: number, h: number, r: number) {
   ].join(' ')
 }
 
+function againstWall(x: number, y: number, w: number, h: number, r: number) {
+  const c = corners(x, y, w, h, r)
+  return [`M ${x + w} ${y + h}`, `L ${x + w} ${y + r}`, c.topRight, `L ${x + r} ${y}`, c.topLeft, `L ${x} ${y + h}`].join(' ')
+}
+
 function walls(x: number, y: number, w: number, h: number, r: number, gapFrom: number, gapTo: number) {
   const c = corners(x, y, w, h, r)
   return [
@@ -62,6 +66,20 @@ const chairs = Array.from({ length: 8 }, (_, i) => ({
   y: i < 4 ? ISLAND.y - CHAIR.short - 4 : ISLAND.y + ISLAND.h + 4,
 }))
 
+const STUDIO_DISPLAY = { width: 623, depth: 28, footFront: 56, footBack: 93, footWidth: 210 }
+const MM = 44 / STUDIO_DISPLAY.width
+const MONITOR = { w: STUDIO_DISPLAY.width * MM, h: STUDIO_DISPLAY.depth * MM }
+const FOOT = { w: STUDIO_DISPLAY.footWidth * MM, front: STUDIO_DISPLAY.footFront * MM, back: STUDIO_DISPLAY.footBack * MM }
+const FOOT_GAP = 6
+
+const desktops = Array.from({ length: 8 }, (_, i) => {
+  const x = ISLAND.x + DESK / 2 + (i % 4) * DESK
+  const divider = ISLAND.y + DESK
+  const top = i < 4
+  const monitorY = top ? divider - FOOT_GAP - FOOT.front - MONITOR.h : divider + FOOT_GAP + FOOT.front
+  return { x, monitorY, above: top ? FOOT.back : FOOT.front, below: top ? FOOT.front : FOOT.back }
+})
+
 const TABLE = { x: 4 * GRID, y: 4 * GRID, w: 2 * GRID, h: 4 * GRID }
 
 const meetingChairs = [-52, 0, 52].flatMap((dy) => {
@@ -74,7 +92,7 @@ const meetingChairs = [-52, 0, 52].flatMap((dy) => {
 
 const SCREEN = { x: TABLE.x - 8, y: 464, w: TABLE.w + 16, h: 8 }
 const CABINET = { x: 10 * GRID, y: 2 * GRID, w: 4 * GRID, h: GRID }
-const WATER = { x: 19 * GRID, y: 10 * GRID, w: GRID, h: GRID }
+const WATER = { x: 17 * GRID, y: 11 * GRID, w: GRID, h: GRID }
 
 const WALL = 1.5
 const LABEL_GAP = 16
@@ -82,22 +100,6 @@ const CAP_HEIGHT = 8
 
 const labelBelow = (bottom: number) => bottom + LABEL_GAP + CAP_HEIGHT
 const labelAbove = (top: number) => top - LABEL_GAP
-
-const WARM = '#ffd9a0'
-
-const LIGHT_Y = 4
-
-const lights = [
-  { id: 'meeting-1', x: 150, power: LightPower.Off },
-  { id: 'meeting-2', x: 254, power: LightPower.Off },
-  { id: 'main-1', x: 560, power: LightPower.On },
-  { id: 'main-2', x: 760, power: LightPower.Off },
-  { id: 'main-3', x: 960, power: LightPower.On },
-]
-
-function Lamp({ x, on }: { x: number; on: boolean }) {
-  return <Lightbulb filled={on} x={x} y={LIGHT_Y} height={26} color={on ? WARM : 'rgb(255 255 255 / 0.35)'} />
-}
 
 function Door({ x, y, dx, dy, open }: { x: number; y: number; dx: number; dy: number; open: boolean }) {
   const radius = Math.hypot(dx, dy)
@@ -131,7 +133,7 @@ function Door({ x, y, dx, dy, open }: { x: number; y: number; dx: number; dy: nu
 export function FloorPlan({ door }: { door: DoorState }) {
   return (
     <div className="w-full">
-      <svg viewBox="0 -40 1200 560" className="w-full" fill="none" stroke={LINE} strokeWidth={1.2}>
+      <svg viewBox="0 0 1200 520" className="w-full" fill="none" stroke={LINE} strokeWidth={1.2}>
         <defs>
           <pattern id="grid" width={GRID} height={GRID} patternUnits="userSpaceOnUse">
             <path d={`M ${GRID} 0 L 0 0 0 ${GRID}`} stroke="rgb(255 255 255 / 0.05)" strokeWidth={1} />
@@ -163,8 +165,23 @@ export function FloorPlan({ door }: { door: DoorState }) {
         {chairs.map((chair, i) => (
           <path key={i} d={squircle(chair.x, chair.y, CHAIR.long, CHAIR.short, 6)} stroke={FAINT} />
         ))}
+        {desktops.map(({ x, monitorY, above, below }, i) => {
+          const bottom = monitorY + MONITOR.h
+          return (
+            <g key={i} strokeWidth={0.6}>
+              <path d={squircle(x - MONITOR.w / 2, monitorY, MONITOR.w, MONITOR.h, 1)} />
+              <g strokeWidth={0.4}>
+                <path d={againstWall(x - FOOT.w / 2, monitorY - above, FOOT.w, above, 3)} />
+                <path
+                  d={againstWall(x - FOOT.w / 2, bottom, FOOT.w, below, 3)}
+                  transform={`rotate(180 ${x} ${bottom + below / 2})`}
+                />
+              </g>
+            </g>
+          )
+        })}
 
-        <path d={squircle(WATER.x, WATER.y, WATER.w, WATER.h, 12)} />
+        <path d={againstWall(WATER.x, WATER.y, WATER.w, WATER.h, 12)} />
         <path d={squircle(CABINET.x, CABINET.y, CABINET.w, CABINET.h, 12)} />
 
         <g fill="rgb(255 255 255 / 0.35)" stroke="none" fontSize="11" letterSpacing="1.5">
@@ -184,10 +201,6 @@ export function FloorPlan({ door }: { door: DoorState }) {
             DEVICE CABINET
           </text>
         </g>
-
-        {lights.map((light) => (
-          <Lamp key={light.id} x={light.x} on={light.power === LightPower.On} />
-        ))}
       </svg>
     </div>
   )
