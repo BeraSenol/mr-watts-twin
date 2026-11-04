@@ -85,3 +85,13 @@ export function WaterIcon(props: IconProps) {
     </Symbol>
   )
 }
+
+export function MusicIcon(props: IconProps) {
+  return (
+    <Symbol viewBox="0 0 20 22" {...props}>
+      <path d="M7.5 5.2 L18.5 2 V15.5 H17 V6.4 L9 8.7 V17.5 H7.5 Z" />
+      <ellipse cx="5" cy="17.6" rx="3.6" ry="2.8" />
+      <ellipse cx="14.5" cy="15.6" rx="3.6" ry="2.8" />
+    </Symbol>
+  )
+}

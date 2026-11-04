@@ -66,20 +66,6 @@ const chairs = Array.from({ length: 8 }, (_, i) => ({
   y: i < 4 ? ISLAND.y - CHAIR.short - 4 : ISLAND.y + ISLAND.h + 4,
 }))
 
-const STUDIO_DISPLAY = { width: 623, depth: 28, footFront: 56, footBack: 93, footWidth: 210 }
-const MM = 44 / STUDIO_DISPLAY.width
-const MONITOR = { w: STUDIO_DISPLAY.width * MM, h: STUDIO_DISPLAY.depth * MM }
-const FOOT = { w: STUDIO_DISPLAY.footWidth * MM, front: STUDIO_DISPLAY.footFront * MM, back: STUDIO_DISPLAY.footBack * MM }
-const FOOT_GAP = 6
-
-const desktops = Array.from({ length: 8 }, (_, i) => {
-  const x = ISLAND.x + DESK / 2 + (i % 4) * DESK
-  const divider = ISLAND.y + DESK
-  const top = i < 4
-  const monitorY = top ? divider - FOOT_GAP - FOOT.front - MONITOR.h : divider + FOOT_GAP + FOOT.front
-  return { x, monitorY, above: top ? FOOT.back : FOOT.front, below: top ? FOOT.front : FOOT.back }
-})
-
 const TABLE = { x: 4 * GRID, y: 4 * GRID, w: 2 * GRID, h: 4 * GRID }
 
 const meetingChairs = [-52, 0, 52].flatMap((dy) => {
@@ -93,6 +79,7 @@ const meetingChairs = [-52, 0, 52].flatMap((dy) => {
 const SCREEN = { x: TABLE.x - 8, y: 464, w: TABLE.w + 16, h: 8 }
 const CABINET = { x: 10 * GRID, y: 2 * GRID, w: 4 * GRID, h: GRID }
 const WATER = { x: 17 * GRID, y: 11 * GRID, w: GRID, h: GRID }
+const SPEAKER = { x: 26 * GRID, y: 10 * GRID, w: 2 * GRID, h: GRID }
 
 const WALL = 1.5
 const LABEL_GAP = 16
@@ -165,24 +152,9 @@ export function FloorPlan({ door }: { door: DoorState }) {
         {chairs.map((chair, i) => (
           <path key={i} d={squircle(chair.x, chair.y, CHAIR.long, CHAIR.short, 6)} stroke={FAINT} />
         ))}
-        {desktops.map(({ x, monitorY, above, below }, i) => {
-          const bottom = monitorY + MONITOR.h
-          return (
-            <g key={i} strokeWidth={0.6}>
-              <path d={squircle(x - MONITOR.w / 2, monitorY, MONITOR.w, MONITOR.h, 1)} />
-              <g strokeWidth={0.4}>
-                <path d={againstWall(x - FOOT.w / 2, monitorY - above, FOOT.w, above, 3)} />
-                <path
-                  d={againstWall(x - FOOT.w / 2, bottom, FOOT.w, below, 3)}
-                  transform={`rotate(180 ${x} ${bottom + below / 2})`}
-                />
-              </g>
-            </g>
-          )
-        })}
-
         <path d={againstWall(WATER.x, WATER.y, WATER.w, WATER.h, 12)} />
         <path d={squircle(CABINET.x, CABINET.y, CABINET.w, CABINET.h, 12)} />
+        <path d={squircle(SPEAKER.x, SPEAKER.y, SPEAKER.w, SPEAKER.h, 12)} />
 
         <g fill="rgb(255 255 255 / 0.35)" stroke="none" fontSize="11" letterSpacing="1.5">
           <text x={TABLE.x + TABLE.w / 2} y={labelBelow(TABLE.y + TABLE.h)} textAnchor="middle">
@@ -199,6 +171,9 @@ export function FloorPlan({ door }: { door: DoorState }) {
           </text>
           <text x={CABINET.x + CABINET.w / 2} y={labelBelow(CABINET.y + CABINET.h)} textAnchor="middle">
             DEVICE CABINET
+          </text>
+          <text x={SPEAKER.x + SPEAKER.w / 2} y={labelAbove(SPEAKER.y)} textAnchor="middle">
+            SPEAKER
           </text>
         </g>
       </svg>
