@@ -41,9 +41,16 @@ export interface Device {
   latestOs: string
 }
 
+export const Room = {
+  Main: 'main',
+  Meeting: 'meeting',
+} as const
+export type Room = ValueOf<typeof Room>
+
 export interface Light {
   id: string
   name: string
+  room: Room
   watts: number
 }
 
@@ -107,9 +114,28 @@ export interface DeviceState {
 }
 
 export type MusicState =
-  | { status: 'playing' | 'paused'; trackId: string; sourceDevice: string; positionSec: number }
+  | { status: 'playing' | 'paused'; trackId: string; sourceDevice: string; positionSec: number; queue: string[] }
   | { status: 'off' }
   | { status: 'unknown' }
+
+export interface Play {
+  trackId: string
+  playedAt: Timestamp
+}
+
+export const EnergySource = {
+  Desktops: 'desktops',
+  Lights: 'lights',
+  Water: 'water',
+  Network: 'network',
+  Speaker: 'speaker',
+} as const
+export type EnergySource = ValueOf<typeof EnergySource>
+
+export interface EnergyShare {
+  source: EnergySource
+  watts: number
+}
 
 export type LoanReturn =
   | { status: 'open' }
@@ -130,5 +156,6 @@ export interface Snapshot {
   lights: LightState[]
   devices: DeviceState[]
   music: MusicState
+  playedToday: Play[]
   bottlesSavedToday: number
 }
