@@ -100,7 +100,7 @@ export interface LightState {
 
 export type DeviceHolder =
   | { status: 'cabinet' }
-  | { status: 'borrowed'; personId: string; since: Timestamp }
+  | { status: 'borrowed'; personId: string; since: Timestamp; location: string }
   | { status: 'unknown' }
 
 export type Battery =
@@ -148,14 +148,29 @@ export interface Loan {
   returned: LoanReturn
 }
 
+export interface DoorTimes {
+  unlocked: TimeReading
+  locked: TimeReading
+}
+
+export interface Reservation {
+  id: string
+  title: string
+  personId: string
+  start: Timestamp
+  end: Timestamp
+}
+
 export interface Snapshot {
   time: Timestamp
   mode: TimeMode
   door: DoorState
+  doorTimes: DoorTimes
   people: PersonState[]
   lights: LightState[]
   devices: DeviceState[]
   music: MusicState
   playedToday: Play[]
-  bottlesSavedToday: number
+  reservations: Reservation[]
+  cupsToday: number
 }
