@@ -47,6 +47,12 @@ export const Room = {
 } as const
 export type Room = ValueOf<typeof Room>
 
+export const Incident = {
+  DoorLeftUnlocked: 'doorLeftUnlocked',
+  LightsLeftOn: 'lightsLeftOn',
+} as const
+export type Incident = ValueOf<typeof Incident>
+
 export interface Light {
   id: string
   name: string
@@ -101,6 +107,7 @@ export interface LightState {
 export type DeviceHolder =
   | { status: 'cabinet' }
   | { status: 'borrowed'; personId: string; since: Timestamp; location: string }
+  | { status: 'expected'; personId: string; from: Timestamp; until: Timestamp }
   | { status: 'unknown' }
 
 export type Battery =

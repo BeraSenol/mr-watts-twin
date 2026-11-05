@@ -1,4 +1,4 @@
-import { isKnown, presentPeople } from '../data/derive'
+import { isKnown, peopleCount } from '../data/derive'
 import { DoorState, type Snapshot } from '../model/types'
 
 const doorText: Record<DoorState, string> = {
@@ -8,7 +8,7 @@ const doorText: Record<DoorState, string> = {
 }
 
 export function StatusSummary({ snapshot }: { snapshot: Snapshot }) {
-  const here = isKnown(snapshot) ? `${presentPeople(snapshot).length} here` : 'Not known yet'
+  const here = isKnown(snapshot) ? `${peopleCount(snapshot)} here` : `~${peopleCount(snapshot)} expected`
 
   return (
     <p className="text-sm text-label-secondary">

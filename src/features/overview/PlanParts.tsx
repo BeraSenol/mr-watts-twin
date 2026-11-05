@@ -2,12 +2,16 @@ import { useId, type ReactNode } from 'react'
 import { FAINT, WALL } from './drawing'
 
 const DOOR_MOTION = '900ms cubic-bezier(0.45, 0, 0.25, 1)'
+const KNOB_AT = 0.8
+const KNOB = 4
 
 export function Door({ x, y, dx, dy, open }: { x: number; y: number; dx: number; dy: number; open: boolean }) {
   const mask = `door-${useId().replace(/\W/g, '')}`
   const radius = Math.hypot(dx, dy)
   const length = (Math.PI / 2) * radius
   const swing = `M ${x + dx} ${y + dy} A ${radius} ${radius} 0 0 1 ${x - dy} ${y + dx}`
+  const knob = { x: x + dx * KNOB_AT, y: y + dy * KNOB_AT }
+  const across = { x: (-dy / radius) * KNOB, y: (dx / radius) * KNOB }
 
   return (
     <g>
@@ -21,19 +25,18 @@ export function Door({ x, y, dx, dy, open }: { x: number; y: number; dx: number;
         />
       </mask>
       <path d={swing} stroke={FAINT} strokeDasharray="4 4" mask={`url(#${mask})`} />
-      <line
-        x1={x}
-        y1={y}
-        x2={x + dx}
-        y2={y + dy}
+      <g
         strokeWidth={WALL}
         strokeLinecap="round"
         style={{
           transform: `rotate(${open ? 90 : 0}deg)`,
           transformOrigin: `${x}px ${y}px`,
-          transition: `transform ${DOOR_MOTION}, stroke 300ms ease`,
+          transition: `transform ${DOOR_MOTION}`,
         }}
-      />
+      >
+        <line x1={x} y1={y} x2={x + dx} y2={y + dy} />
+        <line x1={knob.x - across.x} y1={knob.y - across.y} x2={knob.x + across.x} y2={knob.y + across.y} />
+      </g>
     </g>
   )
 }

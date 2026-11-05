@@ -1,6 +1,8 @@
 export const LINE = '#737373'
 export const FAINT = '#2e2e2e'
 export const SEATED = '#4a4a4a'
+export const PREDICTED = '#6b6b6b'
+export const DASH = '3 2.5'
 export const WALL = 1.5
 
 function corners(x: number, y: number, w: number, h: number, r: number) {

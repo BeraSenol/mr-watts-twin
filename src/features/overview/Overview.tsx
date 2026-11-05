@@ -5,21 +5,23 @@ import {
   DevicesSlashIcon,
   DevicesUpdateIcon,
   EnergyIcon,
-  LockIcon,
-  LockOpenIcon,
+  LockFillIcon,
+  LockOpenFillIcon,
   MusicIcon,
   PersonFillIcon,
   PersonIcon,
 } from '../../components/icons/symbols'
 import { StatPill } from '../../components/ui/StatPill'
+import { Tone } from '../../components/ui/tone'
 import { devices } from '../../data/catalogue'
 import {
   conflicts,
   devicesIn,
-  isAfterHours,
+  doorLeftUnlocked,
   isKnown,
-  lightsOn,
+  lightsLeftOn,
   meetingsNow,
+  peopleCount,
   presentPeople,
   readingText,
   totalWatts,
@@ -37,10 +39,6 @@ import { PeoplePanel } from '../people/PeoplePanel'
 import { FloorPlan } from './FloorPlan'
 import { Panel } from './panel'
 
-const GOOD = 'bg-success/15 text-success'
-const WARNING = 'bg-glow/15 text-glow'
-const OFF = 'bg-white/10 text-label-secondary'
-const DANGER = 'bg-danger/15 text-danger'
 const UNKNOWN = 'Unknown'
 
 export function Overview({ snapshot, now }: { snapshot: Snapshot; now: Date }) {
@@ -53,22 +51,23 @@ export function Overview({ snapshot, now }: { snapshot: Snapshot; now: Date }) {
   const anyoneIn = present > 0
 
   const unlocked = snapshot.door === DoorState.Unlocked
-  const doorOpenEmpty = unlocked && !anyoneIn
-  const doorTone = doorOpenEmpty ? WARNING : unlocked ? GOOD : OFF
+  const doorOpenEmpty = doorLeftUnlocked(snapshot)
+  const doorTone = doorOpenEmpty ? Tone.Danger : unlocked ? Tone.Good : Tone.Off
 
-  const lightsLeftOn = isAfterHours(snapshot) && !anyoneIn && lightsOn(snapshot).length > 0
+  const lightsLeft = lightsLeftOn(snapshot)
 
   const inCabinet = devicesIn(snapshot).length
   const updates = devices.filter((device) => device.os !== device.latestOs).length
   const noDevices = known && inCabinet === 0
   const needsUpdate = !noDevices && updates > 0
   const devicesIcon = noDevices ? DevicesSlashIcon : needsUpdate ? DevicesUpdateIcon : DevicesIcon
-  const devicesTone = !known || noDevices ? OFF : needsUpdate ? WARNING : GOOD
-  const devicesDetail = `${devices.length - inCabinet} borrowed` + (needsUpdate ? ` · ${updates} need an update` : '')
+  const devicesTone = !known || noDevices ? Tone.Off : needsUpdate ? Tone.Warning : Tone.Good
+  const approx = known ? '' : '~'
+  const devicesDetail = `${approx}${devices.length - inCabinet} borrowed` + (needsUpdate ? ` · ${updates} need an update` : '')
 
-  const watts = totalWatts(snapshot)
+  const watts = totalWatts(snapshot, now)
   const energyHigh = watts > NORMAL_MAX_WATTS
-  const energyDetail = lightsLeftOn
+  const energyDetail = lightsLeft
     ? 'Lights left on after office hours'
     : energyHigh
       ? `Above normal (${NORMAL_MAX_WATTS / 1000} kW)`
@@ -81,12 +80,20 @@ export function Overview({ snapshot, now }: { snapshot: Snapshot; now: Date }) {
 
   const meetings = meetingsNow(snapshot)
   const doubleBooked = conflicts(meetings).size > 0
-  const meetingTone = doubleBooked ? WARNING : meetings.length > 0 ? DANGER : GOOD
+  const meetingTone = doubleBooked ? Tone.Warning : meetings.length > 0 ? Tone.Danger : Tone.Good
   const meetingValue = doubleBooked ? 'Double booked' : meetings.length > 0 ? 'In use' : 'Free'
 
   return (
     <div className="overflow-x-clip">
-      <FloorPlan door={snapshot.door} occupiedDesks={present} meetingInUse={meetings.length > 0} onSelect={toggle} />
+      <FloorPlan
+        door={snapshot.door}
+        seats={peopleCount(snapshot)}
+        devicesIn={inCabinet}
+        deviceSlots={devices.length}
+        predicted={!known}
+        meetingInUse={meetings.length > 0}
+        onSelect={toggle}
+      />
 
       {panel === Panel.People && <PeoplePanel snapshot={snapshot} now={now} onClose={close} />}
       {panel === Panel.Devices && <DevicesPanel snapshot={snapshot} now={now} onClose={close} />}
@@ -98,35 +105,35 @@ export function Overview({ snapshot, now }: { snapshot: Snapshot; now: Date }) {
       <nav className="fixed inset-x-0 bottom-6 z-10 flex justify-center px-4">
         <div className="glass flex max-w-full gap-1 overflow-x-auto rounded-full p-1.5">
           <StatPill
-            icon={anyoneIn ? PersonFillIcon : PersonIcon}
-            tone={anyoneIn ? GOOD : OFF}
-            label="People"
-            value={known ? `${present} of ${DESKS}` : UNKNOWN}
-            detail={known ? `First arrival ${readingText(snapshot.doorTimes.unlocked)}` : 'Not known yet'}
+            icon={peopleCount(snapshot) > 0 ? PersonFillIcon : PersonIcon}
+            tone={anyoneIn ? Tone.Good : Tone.Off}
+            label={known ? 'People' : 'Expected'}
+            value={`${known ? '' : '~'}${peopleCount(snapshot)} of ${DESKS}`}
+            detail={`First arrival ${readingText(snapshot.doorTimes.unlocked)}`}
             selected={panel === Panel.People}
             onClick={() => toggle(Panel.People)}
           />
           <StatPill
             icon={devicesIcon}
             tone={devicesTone}
-            label="Devices in"
-            value={known ? `${inCabinet} of ${devices.length}` : UNKNOWN}
-            detail={known ? devicesDetail : 'Not known yet'}
+            label={known ? 'Devices in' : 'Expected in'}
+            value={`${approx}${inCabinet} of ${devices.length}`}
+            detail={devicesDetail}
             selected={panel === Panel.Devices}
             onClick={() => toggle(Panel.Devices)}
           />
           <StatPill
             icon={EnergyIcon}
-            tone={!known ? OFF : energyHigh || lightsLeftOn ? WARNING : GOOD}
-            label="Energy"
-            value={known ? `${(watts / 1000).toFixed(1)} kW` : UNKNOWN}
-            detail={known ? energyDetail : 'Not known yet'}
+            tone={!known ? Tone.Off : energyHigh || lightsLeft ? Tone.Warning : Tone.Good}
+            label={known ? 'Energy' : 'Expected use'}
+            value={`${approx}${(watts / 1000).toFixed(1)} kW`}
+            detail={energyDetail}
             selected={panel === Panel.Energy}
             onClick={() => toggle(Panel.Energy)}
           />
           <StatPill
             icon={MusicIcon}
-            tone={music.status === 'playing' ? GOOD : OFF}
+            tone={music.status === 'playing' ? Tone.Good : Tone.Off}
             label={musicLabel}
             value={musicValue}
             detail="Office speaker"
@@ -143,7 +150,7 @@ export function Overview({ snapshot, now }: { snapshot: Snapshot; now: Date }) {
             onClick={() => toggle(Panel.Meeting)}
           />
           <StatPill
-            icon={unlocked ? LockOpenIcon : LockIcon}
+            icon={unlocked ? LockOpenFillIcon : LockFillIcon}
             tone={doorTone}
             label="Front door"
             value={doorText[snapshot.door]}

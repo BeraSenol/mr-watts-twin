@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import type { IncidentMarks } from '../data/derive'
 import { CrownTicks } from './CrownTicks'
 import {
   DEFAULT_HOUR,
@@ -27,8 +28,11 @@ const FINE_DRAG = 6
 const MS_PER_STEP = 80
 const MIN_GLIDE = 250
 const MAX_GLIDE = 900
+const EPSILON = 1e-6
 
-export function TimeMachine({ onChange }: { onChange: (selection: Selection) => void }) {
+type Props = { incidents: IncidentMarks; onChange: (selection: Selection) => void }
+
+export function TimeMachine({ incidents, onChange }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const width = useElementWidth(ref)
   const radius = width / 2
@@ -46,11 +50,12 @@ export function TimeMachine({ onChange }: { onChange: (selection: Selection) => 
   const frame = useRef(0)
   const wheelSnap = useRef(0)
   const glide = useRef({ active: false, to: 0, quiet: false })
+  const offset = useRef(0)
 
   useEffect(() => () => cancelAnimationFrame(frame.current), [])
 
-  const unit = () => (fineRef.current ? 1 / HOURS : 1)
-  const roundToUnit = (value: number) => Math.round(value / unit()) * unit()
+  const stepOf = (value: number) => (fineRef.current ? Math.round(value * HOURS) : Math.round(value - offset.current))
+  const roundToUnit = (value: number) => (fineRef.current ? stepOf(value) / HOURS : stepOf(value) + offset.current)
 
   function selectionAt(step: number): Selection {
     const hoursFromMidnight = Math.round(step * HOURS) + DEFAULT_HOUR
@@ -67,9 +72,9 @@ export function TimeMachine({ onChange }: { onChange: (selection: Selection) => 
 
   function moveTo(next: number) {
     const clamped = clamp(next)
-    const step = Math.round(clamped / unit())
-    if (step !== Math.round(positionRef.current / unit())) {
-      const landing = step === Math.round(glide.current.to / unit())
+    const step = stepOf(clamped)
+    if (step !== stepOf(positionRef.current)) {
+      const landing = step === stepOf(glide.current.to)
       const weekMark = !fineRef.current && step % STEPS_PER_WEEK === 0
       if (!(glide.current.active && glide.current.quiet) || landing || weekMark) playTick()
       select(selectionAt(roundToUnit(clamped)))
@@ -89,6 +94,9 @@ export function TimeMachine({ onChange }: { onChange: (selection: Selection) => 
   function exitFine() {
     if (!fineRef.current) return
     const target = roundToUnit(glide.current.active ? glide.current.to : positionRef.current)
+    const hours = Math.round(target * HOURS)
+    const dayTick = Math.floor((hours + DEFAULT_HOUR) / HOURS)
+    offset.current = (hours - dayTick * HOURS) / HOURS
     select(selectionAt(target))
     fineRef.current = false
     setFine(false)
@@ -105,7 +113,7 @@ export function TimeMachine({ onChange }: { onChange: (selection: Selection) => 
     stop()
     const from = positionRef.current
     const to = clamp(target)
-    const steps = Math.abs(to - from) / unit()
+    const steps = Math.abs(to - from) * (fineRef.current ? HOURS : 1)
     const jump = duration === undefined && fromRest && steps > 1.5
     const time = duration ?? Math.min(Math.max(steps * MS_PER_STEP, MIN_GLIDE), MAX_GLIDE)
     const ease = jump ? easeInOut : easeOut
@@ -184,7 +192,7 @@ export function TimeMachine({ onChange }: { onChange: (selection: Selection) => 
     if (Math.abs(event.clientX - d.startX) < CLICK_TOLERANCE) {
       const x = event.clientX - event.currentTarget.getBoundingClientRect().left
       const angle = Math.asin(Math.max(-1, Math.min(1, (x - radius) / radius)))
-      glideTo(Math.round(d.startPosition + angle / STEP_ANGLE))
+      glideTo(roundToUnit(d.startPosition + angle / STEP_ANGLE))
       return
     }
 
@@ -219,6 +227,16 @@ export function TimeMachine({ onChange }: { onChange: (selection: Selection) => 
       return
     }
 
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      if (fineRef.current) return
+      const current = glide.current.active ? glide.current.to : positionRef.current
+      const dayTick = Math.round(current - offset.current)
+      offset.current = 0
+      glideTo(dayTick)
+      return
+    }
+
     if (fineRef.current && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) {
       event.preventDefault()
       const current = roundToUnit(glide.current.active ? glide.current.to : positionRef.current)
@@ -227,15 +245,18 @@ export function TimeMachine({ onChange }: { onChange: (selection: Selection) => 
       return
     }
 
-    const current = glide.current.active ? glide.current.to : positionRef.current
+    const current = (glide.current.active ? glide.current.to : positionRef.current) - offset.current
     const byWeek = event.metaKey || event.ctrlKey
     let next: number
 
     if (event.key === 'ArrowRight') {
-      next = byWeek ? (Math.floor(current / STEPS_PER_WEEK) + 1) * STEPS_PER_WEEK : Math.floor(current) + 1
+      const ahead = current + EPSILON
+      next = (byWeek ? (Math.floor(ahead / STEPS_PER_WEEK) + 1) * STEPS_PER_WEEK : Math.floor(ahead) + 1) + offset.current
     } else if (event.key === 'ArrowLeft') {
-      next = byWeek ? (Math.ceil(current / STEPS_PER_WEEK) - 1) * STEPS_PER_WEEK : Math.ceil(current) - 1
+      const behind = current - EPSILON
+      next = (byWeek ? (Math.ceil(behind / STEPS_PER_WEEK) - 1) * STEPS_PER_WEEK : Math.ceil(behind) - 1) + offset.current
     } else if (event.key === 'Home' || event.key === ' ') {
+      offset.current = 0
       next = 0
     } else {
       return
@@ -297,7 +318,15 @@ export function TimeMachine({ onChange }: { onChange: (selection: Selection) => 
         className="relative cursor-grab touch-none text-label outline-none select-none active:cursor-grabbing"
         style={{ height: HEIGHT + LABEL_HEIGHT }}
       >
-        <CrownTicks width={width} position={position} fine={fine} today={today} nowHour={nowHour} selection={selection} />
+        <CrownTicks
+          width={width}
+          position={position}
+          fine={fine}
+          today={today}
+          nowHour={nowHour}
+          selection={selection}
+          incidents={incidents}
+        />
         <div
           className={`pointer-events-none absolute top-0 left-1/2 w-[2px] -translate-x-1/2 rounded-full transition-colors ${
             atNow ? 'bg-accent' : 'bg-label'

@@ -1,3 +1,5 @@
+import type { IncidentMarks } from '../data/derive'
+import { Incident } from '../model/types'
 import {
   DEFAULT_HOUR,
   HEIGHT,
@@ -15,6 +17,11 @@ import {
 const PILL_CLEAR = 48
 const PILL_FADE = 24
 
+const INCIDENT_COLOR: Record<Incident, string> = {
+  [Incident.DoorLeftUnlocked]: 'var(--color-danger)',
+  [Incident.LightsLeftOn]: 'var(--color-glow)',
+}
+
 const dayFormat = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric' })
 
 type Props = {
@@ -24,9 +31,10 @@ type Props = {
   today: number
   nowHour: number
   selection: Selection
+  incidents: IncidentMarks
 }
 
-export function CrownTicks({ width, position, fine, today, nowHour, selection }: Props) {
+export function CrownTicks({ width, position, fine, today, nowHour, selection, incidents }: Props) {
   const radius = width / 2
   const picked = selection.hour.status === 'picked' ? selection.hour.hour : undefined
   const base = Math.floor(position)
@@ -48,6 +56,7 @@ export function CrownTicks({ width, position, fine, today, nowHour, selection }:
       const clock = (DEFAULT_HOUR + h) % HOURS
       const isNowHour = index * HOURS + h === nowHour - DEFAULT_HOUR
       const hourHalf = ((clock === 0 ? 14 : 7) * (0.5 + 0.5 * hourDepth)) / 2
+      const hourIncident = incidents.hours.get(index * HOURS + h + DEFAULT_HOUR)
       hourTicks.push(
         <line
           key={`hour-${index}-${h}`}
@@ -55,10 +64,10 @@ export function CrownTicks({ width, position, fine, today, nowHour, selection }:
           x2={hourX}
           y1={HEIGHT / 2 - hourHalf}
           y2={HEIGHT / 2 + hourHalf}
-          stroke={isNowHour ? 'var(--color-accent)' : 'currentColor'}
+          stroke={isNowHour ? 'var(--color-accent)' : hourIncident ? INCIDENT_COLOR[hourIncident] : 'currentColor'}
           strokeWidth={0.4 + 0.6 * hourDepth}
           strokeLinecap="round"
-          opacity={0.08 + 0.6 * hourDepth * hourDepth}
+          opacity={(hourIncident ? 0.3 : 0.08) + 0.6 * hourDepth * hourDepth}
         />,
       )
     }
@@ -72,6 +81,7 @@ export function CrownTicks({ width, position, fine, today, nowHour, selection }:
     const isWeek = index % STEPS_PER_WEEK === 0 && !isNow
     const length = isNow ? HEIGHT : isWeek ? 22 : 12
     const half = (length * (0.5 + 0.5 * depth)) / 2
+    const incident = fine ? incidents.hours.get(index * HOURS + DEFAULT_HOUR) : incidents.days.get(index)
 
     ticks.push(
       <line
@@ -80,7 +90,7 @@ export function CrownTicks({ width, position, fine, today, nowHour, selection }:
         x2={x}
         y1={HEIGHT / 2 - half}
         y2={HEIGHT / 2 + half}
-        stroke={isNow ? 'var(--color-accent)' : 'currentColor'}
+        stroke={isNow ? 'var(--color-accent)' : incident ? INCIDENT_COLOR[incident] : 'currentColor'}
         strokeWidth={0.5 + 1.5 * depth}
         strokeLinecap="round"
         opacity={0.1 + 0.9 * depth * depth}

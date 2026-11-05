@@ -3,20 +3,21 @@ import {
   LightPower,
   Presence,
   Room,
-  TimeMode,
   type DeviceState,
   type LightState,
   type MusicState,
   type PersonState,
   type Play,
+  type Reservation,
   type Snapshot,
+  type TimeMode,
   type TimeReading,
 } from '../model/types'
 import { devices, lights, people, tracks } from './catalogue'
 import { CITIES, CLOSES_HOUR, OPENS_HOUR } from './office'
 import { seededRandom } from './random'
 
-const MINUTE = 60_000
+export const MINUTE = 60_000
 const VISIT_CHANCE = [0, 0.6, 0.85, 0.65, 0.85, 0.4, 0]
 const REGULARS: Record<string, number> = {
   jonas: 1,
@@ -29,13 +30,20 @@ const REGULARS: Record<string, number> = {
   kobe: 0.65,
 }
 const LEFT_ON_CHANCE = 0.2
+const LEFT_UNLOCKED_CHANCE = 0.3
 const LOAN_CHANCE = 0.3
 const DOUBLE_BOOKING_CHANCE = 0.15
+const HABITS = [
+  { personId: 'ruben', deviceId: 'vision-pro', weekdays: [2, 4], start: 9 * 60 + 30, hours: 3, location: 'Ghent' },
+  { personId: 'pieter', deviceId: 'quest', weekdays: [1, 3, 5], start: 13 * 60 + 30, hours: 2.5, location: 'Antwerp' },
+  { personId: 'thomas', deviceId: 'pixel', weekdays: [2, 3, 4], start: 10 * 60, hours: 2, location: 'Leuven' },
+]
+const HABIT_CHANCE = 0.85
 const MEETING_TITLES = ['Sprint planning', 'Client demo', 'Design review', 'Unity sync', 'Team retro', 'Investor call', 'Playtest']
 
 type Span = { start: number; end: number }
 type Visit = Span & { personId: string }
-type Loan = Span & { deviceId: string; personId: string; location: string }
+export type Loan = Span & { deviceId: string; personId: string; location: string }
 type Meeting = Span & { id: string; title: string; personId: string }
 
 type DayPlan = {
@@ -43,6 +51,7 @@ type DayPlan = {
   firstArrival: number
   lastDeparture: number
   leftOnUntil: number
+  lockedAt: number
   loans: Loan[]
   meetings: Meeting[]
   cups: number[]
@@ -52,7 +61,7 @@ type DayPlan = {
 
 const plans = new Map<number, DayPlan>()
 
-function planFor(day: number): DayPlan {
+export function planFor(day: number): DayPlan {
   const cached = plans.get(day)
   if (cached) return cached
 
@@ -78,6 +87,7 @@ function planFor(day: number): DayPlan {
     firstArrival,
     lastDeparture,
     leftOnUntil: anyone && random() < LEFT_ON_CHANCE ? lastDeparture + between(60, 240) : lastDeparture,
+    lockedAt: lastDeparture,
     loans: anyone
       ? devices
           .filter(() => random() < LOAN_CHANCE)
@@ -93,6 +103,18 @@ function planFor(day: number): DayPlan {
     firstTrack: between(0, tracks.length),
   }
 
+  const habitRandom = seededRandom(Math.round(day / MINUTE) + 1)
+  for (const habit of HABITS) {
+    const visit = visits.find((candidate) => candidate.personId === habit.personId)
+    if (!visit || !habit.weekdays.includes(new Date(day).getDay()) || habitRandom() > HABIT_CHANCE) continue
+    const start = Math.max(visit.start, habit.start + Math.floor(habitRandom() * 40) - 20)
+    plan.loans = plan.loans.filter((loan) => loan.deviceId !== habit.deviceId)
+    plan.loans.push({ deviceId: habit.deviceId, personId: habit.personId, location: habit.location, start, end: start + habit.hours * 60 })
+  }
+
+  const doorRandom = seededRandom(Math.round(day / MINUTE) + 2)
+  if (anyone && doorRandom() < LEFT_UNLOCKED_CHANCE) plan.lockedAt = lastDeparture + 60 + Math.floor(doorRandom() * 180)
+
   const wanted = visits.length > 1 ? between(1, 4) : 0
   for (let index = 0; index < wanted; index++) {
     const start = between(18, 33) * 30
@@ -105,46 +127,29 @@ function planFor(day: number): DayPlan {
   return plan
 }
 
-const unknown: TimeReading = { status: 'unknown' }
+export const unknown: TimeReading = { status: 'unknown' }
 
-function modeOf(moment: Date, now: Date) {
-  if (Math.abs(moment.getTime() - now.getTime()) < MINUTE) return TimeMode.Now
-  return moment < now ? TimeMode.Past : TimeMode.Future
-}
-
-export function snapshotAt(moment: Date, now: Date): Snapshot {
+export function dayOf(moment: Date) {
   const midnight = new Date(moment)
   midnight.setHours(0, 0, 0, 0)
-  const day = midnight.getTime()
-  const minute = moment.getHours() * 60 + moment.getMinutes()
-  const at = (minutes: number) => day + minutes * MINUTE
-  const actual = (minutes: number): TimeReading => ({ status: 'actual', at: at(minutes) })
+  return { day: midnight.getTime(), minute: moment.getHours() * 60 + moment.getMinutes() }
+}
 
-  const plan = planFor(day)
-  const mode = modeOf(moment, now)
-  const reservations = plan.meetings.map((meeting) => ({
+export function reservationsOn(day: number): Reservation[] {
+  return planFor(day).meetings.map((meeting) => ({
     id: meeting.id,
     title: meeting.title,
     personId: meeting.personId,
-    start: at(meeting.start),
-    end: at(meeting.end),
+    start: day + meeting.start * MINUTE,
+    end: day + meeting.end * MINUTE,
   }))
+}
 
-  if (mode === TimeMode.Future) {
-    return {
-      time: moment.getTime(),
-      mode,
-      door: DoorState.Unknown,
-      doorTimes: { unlocked: unknown, locked: unknown },
-      people: people.map((person) => ({ personId: person.id, presence: Presence.Unknown, arrival: unknown, departure: unknown })),
-      lights: lights.map((light) => ({ lightId: light.id, power: LightPower.Unknown, brightness: 0 })),
-      devices: devices.map((device) => ({ deviceId: device.id, holder: { status: 'unknown' }, battery: { status: 'unknown' } })),
-      music: { status: 'unknown' },
-      playedToday: [],
-      reservations,
-      cupsToday: 0,
-    }
-  }
+export function historySnapshot(moment: Date, mode: TimeMode): Snapshot {
+  const { day, minute } = dayOf(moment)
+  const at = (minutes: number) => day + minutes * MINUTE
+  const actual = (minutes: number): TimeReading => ({ status: 'actual', at: at(minutes) })
+  const plan = planFor(day)
 
   const peopleStates = people.map((person): PersonState => {
     const visit = plan.visits.find((candidate) => candidate.personId === person.id)
@@ -204,17 +209,17 @@ export function snapshotAt(moment: Date, now: Date): Snapshot {
   return {
     time: moment.getTime(),
     mode,
-    door: present > 0 ? DoorState.Unlocked : DoorState.Locked,
+    door: present > 0 || (plan.lastDeparture <= minute && minute < plan.lockedAt) ? DoorState.Unlocked : DoorState.Locked,
     doorTimes: {
       unlocked: plan.visits.length > 0 && plan.firstArrival <= minute ? actual(plan.firstArrival) : unknown,
-      locked: plan.visits.length > 0 && plan.lastDeparture <= minute ? actual(plan.lastDeparture) : unknown,
+      locked: plan.visits.length > 0 && plan.lockedAt <= minute ? actual(plan.lockedAt) : unknown,
     },
     people: peopleStates,
     lights: lightStates,
     devices: deviceStates,
     music,
     playedToday,
-    reservations,
+    reservations: reservationsOn(day),
     cupsToday: plan.cups.filter((cup) => cup <= minute).length,
   }
 }

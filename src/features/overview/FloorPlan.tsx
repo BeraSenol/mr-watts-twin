@@ -1,6 +1,6 @@
 import { useState, type PointerEvent } from 'react'
 import { DoorState } from '../../model/types'
-import { FAINT, LINE, SEATED, WALL, againstWall, squircle, walls } from './drawing'
+import { DASH, FAINT, LINE, PREDICTED, SEATED, WALL, againstWall, squircle, walls } from './drawing'
 import { Panel } from './panel'
 import { Door, Hotspot, Label } from './PlanParts'
 
@@ -30,6 +30,18 @@ const meetingChairs = [-52, 0, 52].flatMap((dy) => {
 
 const SCREEN = { x: TABLE.x - 8, y: 464, w: TABLE.w + 16, h: 8 }
 const CABINET = { x: 10 * GRID, y: 2 * GRID, w: 4 * GRID, h: GRID }
+const SLOT = { w: 10, h: 22, gap: 5 }
+const SLOT_Y = CABINET.y + (CABINET.h - SLOT.h) / 2
+
+function slotX(index: number, count: number) {
+  const row = count * SLOT.w + (count - 1) * SLOT.gap
+  return CABINET.x + (CABINET.w - row) / 2 + index * (SLOT.w + SLOT.gap)
+}
+
+function spot(filled: boolean, predicted: boolean) {
+  if (predicted) return filled ? { stroke: PREDICTED, fill: 'none', strokeDasharray: DASH } : undefined
+  return filled ? { stroke: FAINT, fill: SEATED } : { stroke: FAINT, fill: 'none' }
+}
 const WATER = { x: 17 * GRID, y: 11 * GRID, w: GRID, h: GRID }
 const SPEAKER = { x: 26 * GRID, y: 11 * GRID, w: 2 * GRID, h: GRID }
 
@@ -53,12 +65,15 @@ const labelAbove = (top: number) => top - LABEL_GAP
 
 type Props = {
   door: DoorState
-  occupiedDesks: number
+  seats: number
+  devicesIn: number
+  deviceSlots: number
+  predicted: boolean
   meetingInUse: boolean
   onSelect: (panel: Panel) => void
 }
 
-export function FloorPlan({ door, occupiedDesks, meetingInUse, onSelect }: Props) {
+export function FloorPlan({ door, seats, devicesIn, deviceSlots, predicted, meetingInUse, onSelect }: Props) {
   const [pointer, setPointer] = useState({ x: 0, y: 0, inside: false })
 
   function onPointerMove(event: PointerEvent<SVGSVGElement>) {
@@ -111,14 +126,10 @@ export function FloorPlan({ door, occupiedDesks, meetingInUse, onSelect }: Props
         <Hotspot label="Meeting room" area={AREAS.meeting} onSelect={() => onSelect(Panel.Meeting)}>
           <path d={squircle(TABLE.x, TABLE.y, TABLE.w, TABLE.h, 24)} />
           <path d={squircle(SCREEN.x, SCREEN.y, SCREEN.w, SCREEN.h, 3)} />
-          {meetingChairs.map((chair, i) => (
-            <path
-              key={i}
-              d={squircle(chair.x, chair.y, CHAIR.short, CHAIR.long, 6)}
-              stroke={FAINT}
-              fill={meetingInUse ? SEATED : 'none'}
-            />
-          ))}
+          {meetingChairs.map((chair, i) => {
+            const style = spot(meetingInUse, predicted)
+            return style && <path key={i} d={squircle(chair.x, chair.y, CHAIR.short, CHAIR.long, 6)} {...style} />
+          })}
           <Label x={TABLE.x + TABLE.w / 2} y={labelBelow(TABLE.y + TABLE.h)}>
             MEETING ROOM
           </Label>
@@ -136,14 +147,10 @@ export function FloorPlan({ door, occupiedDesks, meetingInUse, onSelect }: Props
               .join(' ')}
             strokeWidth={0.6}
           />
-          {chairs.map((chair, i) => (
-            <path
-              key={i}
-              d={squircle(chair.x, chair.y, CHAIR.long, CHAIR.short, 6)}
-              stroke={FAINT}
-              fill={i < occupiedDesks ? SEATED : 'none'}
-            />
-          ))}
+          {chairs.map((chair, i) => {
+            const style = spot(i < seats, predicted)
+            return style && <path key={i} d={squircle(chair.x, chair.y, CHAIR.long, CHAIR.short, 6)} {...style} />
+          })}
           <Label x={ISLAND.x + ISLAND.w / 2} y={labelBelow(chairs[4].y + CHAIR.short)}>
             DESK ISLAND
           </Label>
@@ -151,6 +158,10 @@ export function FloorPlan({ door, occupiedDesks, meetingInUse, onSelect }: Props
 
         <Hotspot label="Device cabinet" area={AREAS.cabinet} onSelect={() => onSelect(Panel.Devices)}>
           <path d={squircle(CABINET.x, CABINET.y, CABINET.w, CABINET.h, 12)} />
+          {Array.from({ length: deviceSlots }, (_, i) => {
+            const style = spot(i < devicesIn, predicted)
+            return style && <path key={i} d={squircle(slotX(i, deviceSlots), SLOT_Y, SLOT.w, SLOT.h, 3)} {...style} />
+          })}
           <Label x={CABINET.x + CABINET.w / 2} y={labelBelow(CABINET.y + CABINET.h)}>
             DEVICE CABINET
           </Label>

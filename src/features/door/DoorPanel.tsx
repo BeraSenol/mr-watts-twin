@@ -1,6 +1,9 @@
+import { LockOpenFillIcon } from '../../components/icons/symbols'
 import { Facts } from '../../components/ui/Facts'
+import { Notice } from '../../components/ui/Notice'
 import { Sheet } from '../../components/ui/Sheet'
-import { lastDoorEvents, whenText } from '../../data/derive'
+import { Tone } from '../../components/ui/tone'
+import { doorLeftUnlocked, lastDeparture, lastDoorEvents, readingText, whenText } from '../../data/derive'
 import type { Snapshot, TimeReading } from '../../model/types'
 import { doorText } from './doorText'
 
@@ -12,6 +15,14 @@ export function DoorPanel({ snapshot, now, onClose }: Props) {
 
   return (
     <Sheet title="Front door" subtitle={doorText[snapshot.door]} onClose={onClose}>
+      {doorLeftUnlocked(snapshot) && (
+        <Notice
+          icon={LockOpenFillIcon}
+          tone={Tone.Danger}
+          title="Unlocked while nobody is in"
+          message={`Everyone left at ${readingText(lastDeparture(snapshot))}, but the door hasn't been locked.`}
+        />
+      )}
       <Facts
         stacked
         facts={[

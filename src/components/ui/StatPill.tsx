@@ -1,8 +1,9 @@
 import type { ComponentType, SVGProps } from 'react'
+import type { Tone } from './tone'
 
 type Props = {
   icon: ComponentType<SVGProps<SVGSVGElement>>
-  tone: string
+  tone: Tone
   label: string
   value: string
   detail: string
