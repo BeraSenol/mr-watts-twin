@@ -104,7 +104,7 @@ export function EnergyPanel({ snapshot, now, onClose }: Props) {
           { label: 'Normal', value: `under ${NORMAL_MAX_WATTS / 1000} kW` },
         ]}
       />
-      <List title="Today by hour">
+      <List title="By hour">
         <Bars bars={bars} max={NORMAL_MAX_WATTS / 1000} />
       </List>
       <List title={known ? 'Using power now' : 'Expected use'}>
