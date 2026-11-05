@@ -133,3 +133,21 @@ export function CalendarIcon(props: IconProps) {
     </Symbol>
   )
 }
+
+export function LockIcon(props: IconProps) {
+  return (
+    <Symbol viewBox="0 0 18 22" {...props}>
+      <path d="M4 10V6.5A5 5 0 0 1 14 6.5V10H12V6.5A3 3 0 0 0 6 6.5V10Z" />
+      <rect x="1" y="9" width="16" height="12" rx="3" />
+    </Symbol>
+  )
+}
+
+export function LockOpenIcon(props: IconProps) {
+  return (
+    <Symbol viewBox="0 0 22 22" {...props}>
+      <path d="M10 10V5A5 5 0 0 1 20 5V8H18V5A3 3 0 0 0 12 5V10Z" />
+      <rect x="1" y="9" width="14" height="12" rx="3" />
+    </Symbol>
+  )
+}

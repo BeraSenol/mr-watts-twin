@@ -4,8 +4,8 @@ import {
   DevicesSlashIcon,
   DevicesUpdateIcon,
   EnergyIcon,
-  LightbulbFillIcon,
-  LightbulbIcon,
+  LockIcon,
+  LockOpenIcon,
   MusicIcon,
   PersonFillIcon,
   PersonIcon,
@@ -14,18 +14,20 @@ import { useState } from 'react'
 import { StatPill } from '../../components/ui/StatPill'
 import { DoorState } from '../../model/types'
 import { DevicesPanel } from '../devices/DevicesPanel'
+import { DoorPanel } from '../door/DoorPanel'
+import { doorText } from '../door/doorText'
 import { EnergyPanel } from '../energy/EnergyPanel'
-import { LightsPanel } from '../lights/LightsPanel'
 import { MeetingPanel } from '../meeting/MeetingPanel'
-import { conflicts, dayKey, sampleReservations, workdays, type Reservation } from '../meeting/reservations'
+import { conflicts, dayKey, sampleReservations, workdays } from '../meeting/reservations'
 import { MusicPanel } from '../music/MusicPanel'
 import { PeoplePanel } from '../people/PeoplePanel'
 import { FloorPlan } from './FloorPlan'
+import { Panel } from './panel'
 
 const PRESENT: number = 5
+const DOOR: DoorState = DoorState.Unlocked
 const DESKS = 8
 const LIGHTS_ON: number = 2
-const LIGHTS_TOTAL = 6
 const AFTER_HOURS: boolean = false
 const DEVICES_IN: number = 7
 const DEVICES_TOTAL = 10
@@ -40,25 +42,13 @@ const WARNING = 'bg-glow/15 text-glow'
 const OFF = 'bg-white/10 text-label-secondary'
 const DANGER = 'bg-danger/15 text-danger'
 
-const Panel = {
-  None: 'none',
-  People: 'people',
-  Lights: 'lights',
-  Devices: 'devices',
-  Energy: 'energy',
-  Music: 'music',
-  Meeting: 'meeting',
-} as const
-type Panel = (typeof Panel)[keyof typeof Panel]
-
 export function Overview({ day }: { day: number }) {
   const [panel, setPanel] = useState<Panel>(Panel.None)
   const toggle = (next: Panel) => setPanel((current) => (current === next ? Panel.None : next))
   const close = () => setPanel(Panel.None)
 
   const [now] = useState(() => new Date())
-  const [reservations, setReservations] = useState(() => sampleReservations(workdays(now, 5)))
-  const book = (reservation: Reservation) => setReservations((current) => [...current, reservation])
+  const [reservations] = useState(() => sampleReservations(workdays(now, 5)))
 
   const moment = new Date(now)
   moment.setDate(now.getDate() + day)
@@ -74,10 +64,11 @@ export function Overview({ day }: { day: number }) {
 
   const anyoneIn = PRESENT > 0
 
-  const lightsOff = LIGHTS_ON === 0
-  const lightsLeftOn = AFTER_HOURS && !lightsOff
-  const lightsIcon = lightsOff ? LightbulbIcon : LightbulbFillIcon
-  const lightsTone = lightsOff ? OFF : lightsLeftOn ? WARNING : GOOD
+  const unlocked = DOOR === DoorState.Unlocked
+  const doorOpenEmpty = unlocked && !anyoneIn
+  const doorTone = doorOpenEmpty ? WARNING : unlocked ? GOOD : OFF
+
+  const lightsLeftOn = AFTER_HOURS && LIGHTS_ON > 0
 
   const noDevices = DEVICES_IN === 0
   const needsUpdate = !noDevices && UPDATES > 0
@@ -86,18 +77,24 @@ export function Overview({ day }: { day: number }) {
   const devicesDetail = `${DEVICES_TOTAL - DEVICES_IN} borrowed` + (needsUpdate ? ` · ${UPDATES} needs an update` : '')
 
   const energyHigh = ENERGY_KW > ENERGY_NORMAL_MAX_KW
+  const energyWarning = energyHigh || lightsLeftOn
+  const energyDetail = lightsLeftOn
+    ? 'Lights left on after office hours'
+    : energyHigh
+      ? `Above normal (${ENERGY_NORMAL_MAX_KW} kW)`
+      : 'Normal usage'
 
   return (
     <div className="overflow-x-clip">
-      <FloorPlan door={DoorState.Unlocked} />
+      <FloorPlan door={DOOR} occupiedDesks={PRESENT} meetingInUse={meetingNow !== undefined} onSelect={toggle} />
 
       {panel === Panel.People && <PeoplePanel onClose={close} />}
-      {panel === Panel.Lights && <LightsPanel onClose={close} />}
       {panel === Panel.Devices && <DevicesPanel onClose={close} />}
       {panel === Panel.Energy && <EnergyPanel onClose={close} />}
       {panel === Panel.Music && <MusicPanel onClose={close} />}
+      {panel === Panel.Door && <DoorPanel door={DOOR} onClose={close} />}
       {panel === Panel.Meeting && (
-        <MeetingPanel now={now} moment={moment} reservations={reservations} onBook={book} onClose={close} />
+        <MeetingPanel now={now} moment={moment} reservations={reservations} onClose={close} />
       )}
 
       <nav className="fixed inset-x-0 bottom-6 z-10 flex justify-center px-4">
@@ -112,15 +109,6 @@ export function Overview({ day }: { day: number }) {
             onClick={() => toggle(Panel.People)}
           />
           <StatPill
-            icon={lightsIcon}
-            tone={lightsTone}
-            label="Lights on"
-            value={`${LIGHTS_ON} of ${LIGHTS_TOTAL}`}
-            detail={lightsLeftOn ? 'Left on after office hours' : 'Meeting room off'}
-            selected={panel === Panel.Lights}
-            onClick={() => toggle(Panel.Lights)}
-          />
-          <StatPill
             icon={devicesIcon}
             tone={devicesTone}
             label="Devices in"
@@ -131,10 +119,10 @@ export function Overview({ day }: { day: number }) {
           />
           <StatPill
             icon={EnergyIcon}
-            tone={energyHigh ? WARNING : GOOD}
+            tone={energyWarning ? WARNING : GOOD}
             label="Energy"
             value={`${ENERGY_KW} kW`}
-            detail={energyHigh ? `Above normal (${ENERGY_NORMAL_MAX_KW} kW)` : 'Normal usage'}
+            detail={energyDetail}
             selected={panel === Panel.Energy}
             onClick={() => toggle(Panel.Energy)}
           />
@@ -155,6 +143,15 @@ export function Overview({ day }: { day: number }) {
             detail={meetingNow ? meetingNow.title : 'No meeting right now'}
             selected={panel === Panel.Meeting}
             onClick={() => toggle(Panel.Meeting)}
+          />
+          <StatPill
+            icon={unlocked ? LockOpenIcon : LockIcon}
+            tone={doorTone}
+            label="Front door"
+            value={doorText[DOOR]}
+            detail={doorOpenEmpty ? 'Unlocked while nobody is in' : unlocked ? 'Unlocked at 08:12' : doorText[DOOR]}
+            selected={panel === Panel.Door}
+            onClick={() => toggle(Panel.Door)}
           />
         </div>
       </nav>

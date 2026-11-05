@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 export function List({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="px-4 text-[11px] font-medium tracking-wider text-label-secondary uppercase">{title}</h3>
+      <h3 className="text-[11px] font-medium tracking-wider text-label-secondary uppercase">{title}</h3>
       <div className="squircle divide-y-[0.5px] divide-separator overflow-hidden rounded-2xl bg-white/[0.05]">
         {children}
       </div>
