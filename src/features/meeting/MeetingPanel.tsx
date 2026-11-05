@@ -18,6 +18,7 @@ type Props = {
 export function MeetingPanel({ now, moment, reservations, onClose }: Props) {
   const day = dayKey(moment)
   const isToday = day === dayKey(now)
+  const isLive = moment.getTime() === now.getTime()
 
   const ofDay = reservations.filter((reservation) => reservation.day === day).sort((a, b) => a.start - b.start)
   const doubleBooked = conflicts(ofDay)
@@ -34,7 +35,7 @@ export function MeetingPanel({ now, moment, reservations, onClose }: Props) {
     <Sheet title="Meeting room" subtitle={isToday ? 'Today' : dateLabel.format(moment)} onClose={onClose}>
       <Facts
         facts={[
-          { label: isToday ? 'Now' : `At ${clock(minutesNow)}`, value: current ? current.title : 'Free' },
+          { label: isLive ? 'Now' : `At ${clock(minutesNow)}`, value: current ? current.title : 'Free' },
           { label: 'Next', value: next ? `${clock(next.start)} ${next.title}` : 'Nothing after this' },
           { label: 'Bookings', value: `${ofDay.length} this day` },
         ]}
@@ -66,7 +67,7 @@ export function MeetingPanel({ now, moment, reservations, onClose }: Props) {
         />
         <Row
           title="Hours of usage"
-          subtitle={isToday ? 'Today so far' : `This day until ${clock(minutesNow)}`}
+          subtitle={isLive ? 'Today so far' : `Until ${clock(minutesNow)}`}
           trailing={<span className="text-[13px] text-label-secondary tabular-nums">{duration(screenMinutes)}</span>}
         />
       </List>

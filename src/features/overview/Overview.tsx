@@ -11,6 +11,7 @@ import {
   PersonIcon,
 } from '../../components/icons/symbols'
 import { useState } from 'react'
+import type { Selection } from '../../app/TimeMachine'
 import { StatPill } from '../../components/ui/StatPill'
 import { DoorState } from '../../model/types'
 import { DevicesPanel } from '../devices/DevicesPanel'
@@ -42,7 +43,7 @@ const WARNING = 'bg-glow/15 text-glow'
 const OFF = 'bg-white/10 text-label-secondary'
 const DANGER = 'bg-danger/15 text-danger'
 
-export function Overview({ day }: { day: number }) {
+export function Overview({ selection }: { selection: Selection }) {
   const [panel, setPanel] = useState<Panel>(Panel.None)
   const toggle = (next: Panel) => setPanel((current) => (current === next ? Panel.None : next))
   const close = () => setPanel(Panel.None)
@@ -51,8 +52,9 @@ export function Overview({ day }: { day: number }) {
   const [reservations] = useState(() => sampleReservations(workdays(now, 5)))
 
   const moment = new Date(now)
-  moment.setDate(now.getDate() + day)
-  if (day !== 0) moment.setHours(10, 0, 0, 0)
+  moment.setDate(now.getDate() + selection.day)
+  if (selection.hour.status === 'picked') moment.setHours(selection.hour.hour, 0, 0, 0)
+  else if (selection.day !== 0) moment.setHours(10, 0, 0, 0)
 
   const minutesNow = moment.getHours() * 60 + moment.getMinutes()
   const today = reservations.filter((reservation) => reservation.day === dayKey(moment))
