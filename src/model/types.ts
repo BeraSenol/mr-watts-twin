@@ -129,23 +129,13 @@ export const EnergySource = {
   Water: 'water',
   Network: 'network',
   Speaker: 'speaker',
+  Screen: 'screen',
 } as const
 export type EnergySource = ValueOf<typeof EnergySource>
 
 export interface EnergyShare {
   source: EnergySource
   watts: number
-}
-
-export type LoanReturn =
-  | { status: 'open' }
-  | { status: 'returned'; at: Timestamp }
-
-export interface Loan {
-  deviceId: string
-  personId: string
-  borrowedAt: Timestamp
-  returned: LoanReturn
 }
 
 export interface DoorTimes {

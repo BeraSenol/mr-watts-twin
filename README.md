@@ -1,32 +1,83 @@
-# React + TypeScript + Vite
+# Mr Watts Office Twin
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A digital twin of the Mr Watts office: one model of the office at a moment in time, which you can scrub back and forth like a watch crown. Built as an interview assignment for the UI/UX developer role.
 
-Currently, two official plugins are available:
+![The overview: floor plan, time machine and status bar](docs/overview.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## What it answers
 
-## React Compiler
+| Question from the brief | Where |
+|---|---|
+| Who is in the office right now? | People pill and sheet, filled desk chairs |
+| How busy will the desks be? | People sheet, week bars (forecast for future days is next) |
+| What music is playing? | Music pill and sheet: now playing, queue, played today |
+| Which lights are on? | Energy sheet, per room |
+| Which test devices are in the office? | Devices pill and sheet: borrowed by, city, battery, most used |
+| Extra 1: energy | Derived from what is on: desktops, lights, speaker, screen, water, network |
+| Extra 2: the time machine | Every screen shows the same moment, past or present |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Also included: meeting room bookings (free, in use, double booked), the front door's last lock and unlock, and water cups with CO₂ saved.
 
-## Expanding the Oxlint configuration
+## Run it
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+`npm run build` type-checks and builds, `npm run lint` runs oxlint.
+
+## Using the time machine
+
+| Input | Does |
+|---|---|
+| Drag, throw, mouse wheel, click a day | Move through days (each day shows 10:00) |
+| ← → | One day |
+| ⌘ ← → | One week |
+| Hold the crown for 1 s, or hold ↓ | Hour ticks appear between the days; move hour by hour |
+| Space or Home | Back to now |
+
+Every object on the floor plan and every pill opens its sheet. Escape closes it.
+
+![A sheet: who is in the office](docs/sheet.png)
+
+## How it works
+
+```
+crown → selection (day + hour) → moment → snapshotAt(moment) → every screen
+```
+
+- **One snapshot.** `App` turns the crown's selection into a moment and asks for one `Snapshot`. The header, floor plan, pills and sheets all render from it, so they can never disagree.
+- **Derived, not stored.** Counts, energy, warnings, conflicts and "most used" are calculated from the snapshot in `data/derive.ts`. Nothing is copied into state.
+- **Explicit unknowns.** The model has no `null`. A future moment is a valid snapshot whose states are `unknown`, and the UI says so.
+- **Seeded history.** `data/history.ts` generates each past day from a seed (the date), so the same moment always looks the same. A day is planned once (who comes in, loans, meetings, cups), then read at any minute.
+
+## Structure
+
+```
+src/
+  app/          shell, header, time machine (crown.ts · CrownTicks · TimeMachine), moment
+  model/        types.ts — the domain model
+  data/         catalogue, office constants, seeded history, derive (calculations)
+  features/     overview (floor plan), people, devices, energy, music, meeting, door
+  components/   ui (Sheet, List, Facts, Bars, StatPill, Avatar) and icons
+```
+
+## Design decisions
+
+- **One persona: the office manager.** He wants to know who is in, not where they sit. Desk chairs only fill in by count, and device locations are cities, never desks.
+- **Apple-inspired:** dark, calm, grid-aligned and squircle shapes; one colour language (green = good, yellow = needs attention, grey = off or unknown, red = room in use).
+- **Progressive disclosure:** the pill gives the number, the sheet gives the detail.
+- **Read-only:** the data comes from history, so the sheets show the office rather than control it.
+
+## Not included (yet)
+
+- A forecast for future days, learned from the history
+- A real backend: sensors, door and light integrations, and privacy (GDPR) for presence data
+- Light mode, settings and a full mobile layout
+
+## Stack
+
+React 19, TypeScript, Tailwind CSS v4, Vite, oxlint. Frontend only, all data mocked.
+
+Icons are SF Symbols, used for this prototype only: Apple's licence allows them in apps for Apple platforms, so a public release would need a different icon set.

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   CalendarIcon,
   DevicesIcon,
@@ -10,94 +11,89 @@ import {
   PersonFillIcon,
   PersonIcon,
 } from '../../components/icons/symbols'
-import { useState } from 'react'
-import type { Selection } from '../../app/TimeMachine'
 import { StatPill } from '../../components/ui/StatPill'
-import { DoorState } from '../../model/types'
+import { devices } from '../../data/catalogue'
+import {
+  conflicts,
+  devicesIn,
+  isAfterHours,
+  isKnown,
+  lightsOn,
+  meetingsNow,
+  presentPeople,
+  readingText,
+  totalWatts,
+  trackById,
+} from '../../data/derive'
+import { DESKS, NORMAL_MAX_WATTS } from '../../data/office'
+import { DoorState, type Snapshot } from '../../model/types'
 import { DevicesPanel } from '../devices/DevicesPanel'
 import { DoorPanel } from '../door/DoorPanel'
 import { doorText } from '../door/doorText'
 import { EnergyPanel } from '../energy/EnergyPanel'
 import { MeetingPanel } from '../meeting/MeetingPanel'
-import { conflicts, dayKey, sampleReservations, workdays } from '../meeting/reservations'
 import { MusicPanel } from '../music/MusicPanel'
 import { PeoplePanel } from '../people/PeoplePanel'
 import { FloorPlan } from './FloorPlan'
 import { Panel } from './panel'
 
-const PRESENT: number = 5
-const DOOR: DoorState = DoorState.Unlocked
-const DESKS = 8
-const LIGHTS_ON: number = 2
-const AFTER_HOURS: boolean = false
-const DEVICES_IN: number = 7
-const DEVICES_TOTAL = 10
-const UPDATES: number = 0
-const ENERGY_KW: number = 1.4
-const ENERGY_NORMAL_MAX_KW = 2
-const NOW_PLAYING: string = 'Harbour Lights'
-const MUSIC_PLAYING: boolean = true
-
 const GOOD = 'bg-success/15 text-success'
 const WARNING = 'bg-glow/15 text-glow'
 const OFF = 'bg-white/10 text-label-secondary'
 const DANGER = 'bg-danger/15 text-danger'
+const UNKNOWN = 'Unknown'
 
-export function Overview({ selection }: { selection: Selection }) {
+export function Overview({ snapshot, now }: { snapshot: Snapshot; now: Date }) {
   const [panel, setPanel] = useState<Panel>(Panel.None)
   const toggle = (next: Panel) => setPanel((current) => (current === next ? Panel.None : next))
   const close = () => setPanel(Panel.None)
 
-  const [now] = useState(() => new Date())
-  const [reservations] = useState(() => sampleReservations(workdays(now, 5)))
+  const known = isKnown(snapshot)
+  const present = presentPeople(snapshot).length
+  const anyoneIn = present > 0
 
-  const moment = new Date(now)
-  moment.setDate(now.getDate() + selection.day)
-  if (selection.hour.status === 'picked') moment.setHours(selection.hour.hour, 0, 0, 0)
-  else if (selection.day !== 0) moment.setHours(10, 0, 0, 0)
-
-  const minutesNow = moment.getHours() * 60 + moment.getMinutes()
-  const today = reservations.filter((reservation) => reservation.day === dayKey(moment))
-  const happening = today.filter((reservation) => reservation.start <= minutesNow && minutesNow < reservation.end)
-  const meetingNow = happening[0]
-  const doubleBooked = conflicts(happening).size > 0
-  const meetingTone = doubleBooked ? WARNING : meetingNow ? DANGER : GOOD
-  const meetingValue = doubleBooked ? 'Double booked' : meetingNow ? 'In use' : 'Free'
-
-  const anyoneIn = PRESENT > 0
-
-  const unlocked = DOOR === DoorState.Unlocked
+  const unlocked = snapshot.door === DoorState.Unlocked
   const doorOpenEmpty = unlocked && !anyoneIn
   const doorTone = doorOpenEmpty ? WARNING : unlocked ? GOOD : OFF
 
-  const lightsLeftOn = AFTER_HOURS && LIGHTS_ON > 0
+  const lightsLeftOn = isAfterHours(snapshot) && !anyoneIn && lightsOn(snapshot).length > 0
 
-  const noDevices = DEVICES_IN === 0
-  const needsUpdate = !noDevices && UPDATES > 0
+  const inCabinet = devicesIn(snapshot).length
+  const updates = devices.filter((device) => device.os !== device.latestOs).length
+  const noDevices = known && inCabinet === 0
+  const needsUpdate = !noDevices && updates > 0
   const devicesIcon = noDevices ? DevicesSlashIcon : needsUpdate ? DevicesUpdateIcon : DevicesIcon
-  const devicesTone = noDevices ? OFF : needsUpdate ? WARNING : GOOD
-  const devicesDetail = `${DEVICES_TOTAL - DEVICES_IN} borrowed` + (needsUpdate ? ` · ${UPDATES} needs an update` : '')
+  const devicesTone = !known || noDevices ? OFF : needsUpdate ? WARNING : GOOD
+  const devicesDetail = `${devices.length - inCabinet} borrowed` + (needsUpdate ? ` · ${updates} need an update` : '')
 
-  const energyHigh = ENERGY_KW > ENERGY_NORMAL_MAX_KW
-  const energyWarning = energyHigh || lightsLeftOn
+  const watts = totalWatts(snapshot)
+  const energyHigh = watts > NORMAL_MAX_WATTS
   const energyDetail = lightsLeftOn
     ? 'Lights left on after office hours'
     : energyHigh
-      ? `Above normal (${ENERGY_NORMAL_MAX_KW} kW)`
+      ? `Above normal (${NORMAL_MAX_WATTS / 1000} kW)`
       : 'Normal usage'
+
+  const music = snapshot.music
+  const track = music.status === 'playing' || music.status === 'paused' ? trackById.get(music.trackId) : undefined
+  const musicLabel = music.status === 'playing' ? 'Playing now' : music.status === 'paused' ? 'Paused' : 'Music'
+  const musicValue = track ? track.title : music.status === 'unknown' ? UNKNOWN : 'Off'
+
+  const meetings = meetingsNow(snapshot)
+  const doubleBooked = conflicts(meetings).size > 0
+  const meetingTone = doubleBooked ? WARNING : meetings.length > 0 ? DANGER : GOOD
+  const meetingValue = doubleBooked ? 'Double booked' : meetings.length > 0 ? 'In use' : 'Free'
 
   return (
     <div className="overflow-x-clip">
-      <FloorPlan door={DOOR} occupiedDesks={PRESENT} meetingInUse={meetingNow !== undefined} onSelect={toggle} />
+      <FloorPlan door={snapshot.door} occupiedDesks={present} meetingInUse={meetings.length > 0} onSelect={toggle} />
 
-      {panel === Panel.People && <PeoplePanel onClose={close} />}
-      {panel === Panel.Devices && <DevicesPanel onClose={close} />}
-      {panel === Panel.Energy && <EnergyPanel onClose={close} />}
-      {panel === Panel.Music && <MusicPanel onClose={close} />}
-      {panel === Panel.Door && <DoorPanel door={DOOR} onClose={close} />}
-      {panel === Panel.Meeting && (
-        <MeetingPanel now={now} moment={moment} reservations={reservations} onClose={close} />
-      )}
+      {panel === Panel.People && <PeoplePanel snapshot={snapshot} now={now} onClose={close} />}
+      {panel === Panel.Devices && <DevicesPanel snapshot={snapshot} now={now} onClose={close} />}
+      {panel === Panel.Energy && <EnergyPanel snapshot={snapshot} now={now} onClose={close} />}
+      {panel === Panel.Music && <MusicPanel snapshot={snapshot} onClose={close} />}
+      {panel === Panel.Door && <DoorPanel snapshot={snapshot} now={now} onClose={close} />}
+      {panel === Panel.Meeting && <MeetingPanel snapshot={snapshot} now={now} onClose={close} />}
 
       <nav className="fixed inset-x-0 bottom-6 z-10 flex justify-center px-4">
         <div className="glass flex max-w-full gap-1 overflow-x-auto rounded-full p-1.5">
@@ -105,8 +101,8 @@ export function Overview({ selection }: { selection: Selection }) {
             icon={anyoneIn ? PersonFillIcon : PersonIcon}
             tone={anyoneIn ? GOOD : OFF}
             label="People"
-            value={`${PRESENT} of ${DESKS}`}
-            detail="Busiest day: Thursday"
+            value={known ? `${present} of ${DESKS}` : UNKNOWN}
+            detail={known ? `First arrival ${readingText(snapshot.doorTimes.unlocked)}` : 'Not known yet'}
             selected={panel === Panel.People}
             onClick={() => toggle(Panel.People)}
           />
@@ -114,25 +110,25 @@ export function Overview({ selection }: { selection: Selection }) {
             icon={devicesIcon}
             tone={devicesTone}
             label="Devices in"
-            value={`${DEVICES_IN} of ${DEVICES_TOTAL}`}
-            detail={devicesDetail}
+            value={known ? `${inCabinet} of ${devices.length}` : UNKNOWN}
+            detail={known ? devicesDetail : 'Not known yet'}
             selected={panel === Panel.Devices}
             onClick={() => toggle(Panel.Devices)}
           />
           <StatPill
             icon={EnergyIcon}
-            tone={energyWarning ? WARNING : GOOD}
+            tone={!known ? OFF : energyHigh || lightsLeftOn ? WARNING : GOOD}
             label="Energy"
-            value={`${ENERGY_KW} kW`}
-            detail={energyDetail}
+            value={known ? `${(watts / 1000).toFixed(1)} kW` : UNKNOWN}
+            detail={known ? energyDetail : 'Not known yet'}
             selected={panel === Panel.Energy}
             onClick={() => toggle(Panel.Energy)}
           />
           <StatPill
             icon={MusicIcon}
-            tone={MUSIC_PLAYING ? GOOD : OFF}
-            label={MUSIC_PLAYING ? 'Playing now' : 'Music off'}
-            value={MUSIC_PLAYING ? NOW_PLAYING : 'Nothing'}
+            tone={music.status === 'playing' ? GOOD : OFF}
+            label={musicLabel}
+            value={musicValue}
             detail="Office speaker"
             selected={panel === Panel.Music}
             onClick={() => toggle(Panel.Music)}
@@ -142,7 +138,7 @@ export function Overview({ selection }: { selection: Selection }) {
             tone={meetingTone}
             label="Meeting room"
             value={meetingValue}
-            detail={meetingNow ? meetingNow.title : 'No meeting right now'}
+            detail={meetings.length > 0 ? meetings.map((meeting) => meeting.title).join(' & ') : 'No meeting right now'}
             selected={panel === Panel.Meeting}
             onClick={() => toggle(Panel.Meeting)}
           />
@@ -150,8 +146,8 @@ export function Overview({ selection }: { selection: Selection }) {
             icon={unlocked ? LockOpenIcon : LockIcon}
             tone={doorTone}
             label="Front door"
-            value={doorText[DOOR]}
-            detail={doorOpenEmpty ? 'Unlocked while nobody is in' : unlocked ? 'Unlocked at 08:12' : doorText[DOOR]}
+            value={doorText[snapshot.door]}
+            detail={doorOpenEmpty ? 'Unlocked while nobody is in' : `Unlocked at ${readingText(snapshot.doorTimes.unlocked)}`}
             selected={panel === Panel.Door}
             onClick={() => toggle(Panel.Door)}
           />

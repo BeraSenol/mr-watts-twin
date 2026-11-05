@@ -3,7 +3,7 @@ export const OPENS_HOUR = 8
 export const CLOSES_HOUR = 18
 
 export const WATTS = {
-  desktop: 200,
+  desktop: 150,
   water: 300,
   network: 50,
   speaker: 60,

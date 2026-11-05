@@ -2,32 +2,26 @@ import { Avatar } from '../../components/ui/Avatar'
 import { Facts } from '../../components/ui/Facts'
 import { List, Row } from '../../components/ui/List'
 import { Sheet } from '../../components/ui/Sheet'
-import { clock, conflicts, dayKey, type Reservation } from './reservations'
-
-const duration = (minutes: number) => `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')} min`
+import { clock, conflicts, meetingsNow, personById } from '../../data/derive'
+import { TimeMode, type Snapshot } from '../../model/types'
 
 const dateLabel = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 
-type Props = {
-  now: Date
-  moment: Date
-  reservations: Reservation[]
-  onClose: () => void
-}
+const duration = (minutes: number) => `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')} min`
 
-export function MeetingPanel({ now, moment, reservations, onClose }: Props) {
-  const day = dayKey(moment)
-  const isToday = day === dayKey(now)
-  const isLive = moment.getTime() === now.getTime()
+type Props = { snapshot: Snapshot; now: Date; onClose: () => void }
 
-  const ofDay = reservations.filter((reservation) => reservation.day === day).sort((a, b) => a.start - b.start)
+export function MeetingPanel({ snapshot, now, onClose }: Props) {
+  const moment = new Date(snapshot.time)
+  const isToday = moment.toDateString() === now.toDateString()
+  const isLive = snapshot.mode === TimeMode.Now
+
+  const ofDay = [...snapshot.reservations].sort((a, b) => a.start - b.start)
   const doubleBooked = conflicts(ofDay)
-
-  const minutesNow = moment.getHours() * 60 + moment.getMinutes()
-  const current = ofDay.find((reservation) => reservation.start <= minutesNow && minutesNow < reservation.end)
-  const next = ofDay.find((reservation) => reservation.start > minutesNow)
+  const current = meetingsNow(snapshot)[0]
+  const next = ofDay.find((reservation) => reservation.start > snapshot.time)
   const screenMinutes = ofDay.reduce(
-    (sum, reservation) => sum + Math.max(0, Math.min(reservation.end, minutesNow) - reservation.start),
+    (sum, reservation) => sum + Math.max(0, Math.min(reservation.end, snapshot.time) - reservation.start) / 60_000,
     0,
   )
 
@@ -35,7 +29,7 @@ export function MeetingPanel({ now, moment, reservations, onClose }: Props) {
     <Sheet title="Meeting room" subtitle={isToday ? 'Today' : dateLabel.format(moment)} onClose={onClose}>
       <Facts
         facts={[
-          { label: isLive ? 'Now' : `At ${clock(minutesNow)}`, value: current ? current.title : 'Free' },
+          { label: isLive ? 'Now' : `At ${clock(snapshot.time)}`, value: current ? current.title : 'Free' },
           { label: 'Next', value: next ? `${clock(next.start)} ${next.title}` : 'Nothing after this' },
           { label: 'Bookings', value: `${ofDay.length} this day` },
         ]}
@@ -46,14 +40,15 @@ export function MeetingPanel({ now, moment, reservations, onClose }: Props) {
           <Row title="No reservations" subtitle="The room is free all day" dimmed />
         ) : (
           ofDay.map((reservation) => {
+            const person = personById.get(reservation.personId)
             const conflict = doubleBooked.has(reservation.id)
             return (
               <Row
                 key={reservation.id}
                 title={reservation.title}
-                subtitle={`${clock(reservation.start)}–${clock(reservation.end)} · ${reservation.person}${conflict ? ' · Double booked' : ''}`}
+                subtitle={`${clock(reservation.start)}–${clock(reservation.end)} · ${person?.name ?? 'Unknown'}${conflict ? ' · Double booked' : ''}`}
                 leading={<span className={`size-2 shrink-0 rounded-full ${conflict ? 'bg-glow' : 'bg-white/20'}`} />}
-                trailing={<Avatar initials={reservation.initials} name={reservation.person} />}
+                trailing={person && <Avatar initials={person.initials} name={person.name} />}
               />
             )
           })
@@ -61,14 +56,11 @@ export function MeetingPanel({ now, moment, reservations, onClose }: Props) {
       </List>
 
       <List title="Screen">
-        <Row
-          title={current ? 'On' : 'Standby'}
-          subtitle={current ? `During ${current.title}` : 'Turns on with a meeting'}
-        />
+        <Row title={current ? 'On' : 'Standby'} subtitle={current ? `During ${current.title}` : 'Turns on with a meeting'} />
         <Row
           title="Hours of usage"
-          subtitle={isLive ? 'Today so far' : `Until ${clock(minutesNow)}`}
-          trailing={<span className="text-[13px] text-label-secondary tabular-nums">{duration(screenMinutes)}</span>}
+          subtitle={isLive ? 'Today so far' : `Until ${clock(snapshot.time)}`}
+          trailing={<span className="text-[13px] text-label-secondary tabular-nums">{duration(Math.round(screenMinutes))}</span>}
         />
       </List>
     </Sheet>

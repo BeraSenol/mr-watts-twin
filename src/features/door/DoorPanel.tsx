@@ -1,19 +1,22 @@
 import { Facts } from '../../components/ui/Facts'
 import { Sheet } from '../../components/ui/Sheet'
-import { DoorState } from '../../model/types'
+import { lastDoorEvents, whenText } from '../../data/derive'
+import type { Snapshot, TimeReading } from '../../model/types'
 import { doorText } from './doorText'
 
-const UNLOCKED_AT = '08:12'
-const LOCKED_AT = '18:47'
+type Props = { snapshot: Snapshot; now: Date; onClose: () => void }
 
-export function DoorPanel({ door, onClose }: { door: DoorState; onClose: () => void }) {
+export function DoorPanel({ snapshot, now, onClose }: Props) {
+  const { unlocked, locked } = lastDoorEvents(new Date(snapshot.time), now)
+  const text = (reading: TimeReading) => (reading.status === 'unknown' ? '—' : whenText(reading.at, now))
+
   return (
-    <Sheet title="Front door" subtitle={doorText[door]} onClose={onClose}>
+    <Sheet title="Front door" subtitle={doorText[snapshot.door]} onClose={onClose}>
       <Facts
         stacked
         facts={[
-          { label: 'Unlocked at', value: UNLOCKED_AT },
-          { label: 'Locked at', value: door === DoorState.Locked ? LOCKED_AT : 'Not yet' },
+          { label: 'Last unlocked', value: text(unlocked) },
+          { label: 'Last locked', value: text(locked) },
         ]}
       />
     </Sheet>

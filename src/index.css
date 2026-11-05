@@ -5,7 +5,6 @@
 
   --color-canvas: #000000;
   --color-surface: #1c1c1e;
-  --color-surface-raised: #2c2c2e;
   --color-separator: rgb(84 84 88 / 0.6);
 
   --color-label: #f5f5f7;
@@ -16,7 +15,6 @@
   --color-danger: #ff453a;
   --color-success: #30d158;
   --color-glow: #ffd60a;
-  --color-orange: #ff9f0a;
   --color-cyan: #64d2ff;
 
   --animate-sheet-in: sheet-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
