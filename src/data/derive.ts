@@ -148,18 +148,20 @@ export function weekPresence(moment: Date, now: Date) {
   })
 }
 
-export function mostUsedDevice(moment: Date, now: Date) {
-  const minutesOut = new Map(devices.map((device) => [device.id, 0]))
-  for (let day = -6; day <= 0; day++) {
+export function mostBorrowedDevice(moment: Date, now: Date) {
+  const hoursOut = new Map(devices.map((device) => [device.id, 0]))
+  for (let week = 0, counted = 0; counted < FORECAST_WEEKS && week <= FORECAST_WEEKS * 2; week++) {
+    const day = -7 * week
+    if (!isKnown(snapshotAt(atHour(moment, day, OPENS_HOUR), now))) continue
+    counted++
     for (let hour = OPENS_HOUR; hour < CLOSES_HOUR; hour++) {
-      const snapshot = snapshotAt(atHour(moment, day, hour), now)
-      for (const state of snapshot.devices) {
-        if (state.holder.status === 'borrowed') minutesOut.set(state.deviceId, (minutesOut.get(state.deviceId) ?? 0) + 60)
+      for (const state of snapshotAt(atHour(moment, day, hour), now).devices) {
+        if (state.holder.status === 'borrowed') hoursOut.set(state.deviceId, (hoursOut.get(state.deviceId) ?? 0) + 1)
       }
     }
   }
-  const [id] = [...minutesOut.entries()].sort((a, b) => b[1] - a[1])[0]
-  return deviceById.get(id)
+  const [id, hours] = [...hoursOut.entries()].sort((a, b) => b[1] - a[1])[0]
+  return hours > 0 ? deviceById.get(id) : undefined
 }
 
 export function cupsThisMonth(moment: Date, now: Date) {

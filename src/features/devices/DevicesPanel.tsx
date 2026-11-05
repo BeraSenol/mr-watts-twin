@@ -3,10 +3,11 @@ import { Facts } from '../../components/ui/Facts'
 import { List, Row } from '../../components/ui/List'
 import { Sheet } from '../../components/ui/Sheet'
 import { devices } from '../../data/catalogue'
-import { clock, deviceById, devicesIn, isKnown, mostUsedDevice, personById } from '../../data/derive'
+import { clock, deviceById, devicesIn, isKnown, mostBorrowedDevice, personById } from '../../data/derive'
 import type { Battery, Snapshot } from '../../model/types'
 
 const LOW_BATTERY = 25
+const weekday = new Intl.DateTimeFormat('en-GB', { weekday: 'long' })
 
 function BatteryLevel({ battery }: { battery: Battery }) {
   if (battery.status === 'unknown') return <span className="text-[12px] text-label-secondary">—</span>
@@ -30,7 +31,7 @@ export function DevicesPanel({ snapshot, now, onClose }: Props) {
   const approx = known ? '' : '~'
   const inCabinet = devicesIn(snapshot)
   const updates = devices.filter((device) => device.os !== device.latestOs).length
-  const mostUsed = mostUsedDevice(new Date(snapshot.time), now)
+  const mostBorrowed = mostBorrowedDevice(new Date(snapshot.time), now)
 
   const out = snapshot.devices.flatMap((state) => {
     const device = deviceById.get(state.deviceId)
@@ -57,7 +58,7 @@ export function DevicesPanel({ snapshot, now, onClose }: Props) {
         facts={[
           { label: known ? 'Borrowed' : 'Expected out', value: `${approx}${out.length}` },
           { label: 'Updates', value: updates === 0 ? 'All up to date' : `${updates} available` },
-          { label: 'Most used this week', value: mostUsed ? mostUsed.name : '—' },
+          { label: `Most borrowed on ${weekday.format(snapshot.time)}s`, value: mostBorrowed ? mostBorrowed.name : '—' },
         ]}
       />
       <List title={known ? 'Borrowed' : 'Expected out'}>

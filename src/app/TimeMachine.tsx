@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import type { IncidentMarks } from '../data/derive'
+import { Incident } from '../model/types'
 import { CrownTicks } from './CrownTicks'
 import {
   DEFAULT_HOUR,
@@ -29,6 +30,10 @@ const MS_PER_STEP = 80
 const MIN_GLIDE = 250
 const MAX_GLIDE = 900
 const EPSILON = 1e-6
+const PILL_TONE: Record<Incident, string> = {
+  [Incident.DoorLeftUnlocked]: 'bg-danger text-white',
+  [Incident.LightsLeftOn]: 'bg-glow text-canvas',
+}
 
 type Props = { incidents: IncidentMarks; onChange: (selection: Selection) => void }
 
@@ -301,6 +306,7 @@ export function TimeMachine({ incidents, onChange }: Props) {
 
   const picked = selection.hour.status === 'picked' ? selection.hour.hour : undefined
   const atNow = Math.abs(position) < 0.5 && picked === undefined
+  const pickedIncident = picked !== undefined ? incidents.hours.get(selection.day * HOURS + picked) : undefined
   return (
     <div className="px-8 py-2">
       <div
@@ -335,7 +341,9 @@ export function TimeMachine({ incidents, onChange }: Props) {
         />
         {fine && picked !== undefined && (
           <span
-            className="pointer-events-none absolute left-1/2 -translate-x-1/2 animate-sheet-in rounded-full bg-label px-2 py-0.5 text-[11px] font-semibold text-canvas tabular-nums"
+            className={`pointer-events-none absolute left-1/2 -translate-x-1/2 animate-sheet-in rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums transition-colors ${
+              pickedIncident ? PILL_TONE[pickedIncident] : 'bg-label text-canvas'
+            }`}
             style={{ top: HEIGHT + 2 }}
           >
             {hourLabel(picked)}
