@@ -1,11 +1,12 @@
+import { Avatar } from '../../components/ui/Avatar'
 import { Facts } from '../../components/ui/Facts'
 import { List, Row } from '../../components/ui/List'
 import { Sheet } from '../../components/ui/Sheet'
 
 const BORROWED = [
-  { name: 'Vision Pro', person: 'Ruben Willems', since: '09:20', battery: 64 },
-  { name: 'iPad Pro 13″', person: 'Jonas Maes', since: '08:40', battery: 81 },
-  { name: 'Pixel 9', person: 'Thomas De Smet', since: 'Monday', battery: 23 },
+  { name: 'Vision Pro', location: 'Brussels', person: 'Ruben Willems', initials: 'RW', since: '09:20' },
+  { name: 'iPad Pro 13″', location: 'Antwerp', person: 'Jonas Maes', initials: 'JM', since: '08:40' },
+  { name: 'Pixel 9', location: 'Ghent', person: 'Thomas De Smet', initials: 'TD', since: 'Monday' },
 ]
 
 const CABINET = [
@@ -51,8 +52,15 @@ export function DevicesPanel({ onClose }: { onClose: () => void }) {
           <Row
             key={device.name}
             title={device.name}
-            subtitle={`${device.person} · since ${device.since}`}
-            trailing={<BatteryLevel level={device.battery} />}
+            subtitle={device.location}
+            trailing={
+              <span className="flex flex-col items-end gap-1">
+                <Avatar initials={device.initials} name={device.person} />
+                <span className="text-[11px] whitespace-nowrap text-label-secondary">
+                  {device.person} · since {device.since}
+                </span>
+              </span>
+            }
           />
         ))}
       </List>

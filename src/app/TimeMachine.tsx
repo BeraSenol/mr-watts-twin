@@ -43,7 +43,7 @@ function weekLabel(index: number) {
   return weeks < 0 ? `${count} ${unit} ago` : `In ${count} ${unit}`
 }
 
-export function TimeMachine() {
+export function TimeMachine({ onDayChange }: { onDayChange: (day: number) => void }) {
   const ref = useRef<HTMLDivElement>(null)
   const width = useElementWidth(ref)
   const radius = width / 2
@@ -61,7 +61,10 @@ export function TimeMachine() {
 
   function moveTo(next: number) {
     const clamped = clamp(next)
-    if (Math.round(clamped) !== Math.round(positionRef.current)) playTick()
+    if (Math.round(clamped) !== Math.round(positionRef.current)) {
+      playTick()
+      onDayChange(Math.round(clamped))
+    }
     positionRef.current = clamped
     setPosition(clamped)
     return clamped

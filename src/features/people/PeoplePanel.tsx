@@ -1,3 +1,4 @@
+import { Avatar } from '../../components/ui/Avatar'
 import { Bars } from '../../components/ui/Bars'
 import { Facts } from '../../components/ui/Facts'
 import { List, Row } from '../../components/ui/List'
@@ -27,14 +28,6 @@ const WEEK = [
   { label: 'Fri', value: 3, muted: true },
 ]
 
-function Avatar({ initials }: { initials: string }) {
-  return (
-    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-[11px] font-semibold">
-      {initials}
-    </span>
-  )
-}
-
 export function PeoplePanel({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title="People" subtitle={`${PRESENT.length} of ${DESKS} desks taken`} onClose={onClose}>
@@ -50,12 +43,12 @@ export function PeoplePanel({ onClose }: { onClose: () => void }) {
       </List>
       <List title="In the office">
         {PRESENT.map((person) => (
-          <Row key={person.name} title={person.name} subtitle={person.role} leading={<Avatar initials={person.initials} />} />
+          <Row key={person.name} title={person.name} subtitle={person.role} leading={<Avatar initials={person.initials} name={person.name} />} />
         ))}
       </List>
       <List title="Not in today">
         {ABSENT.map((person) => (
-          <Row key={person.name} title={person.name} subtitle={person.role} leading={<Avatar initials={person.initials} />} dimmed />
+          <Row key={person.name} title={person.name} subtitle={person.role} leading={<Avatar initials={person.initials} name={person.name} />} dimmed />
         ))}
       </List>
     </Sheet>

@@ -1,4 +1,5 @@
 import {
+  CalendarIcon,
   DevicesIcon,
   DevicesSlashIcon,
   DevicesUpdateIcon,
@@ -15,6 +16,8 @@ import { DoorState } from '../../model/types'
 import { DevicesPanel } from '../devices/DevicesPanel'
 import { EnergyPanel } from '../energy/EnergyPanel'
 import { LightsPanel } from '../lights/LightsPanel'
+import { MeetingPanel } from '../meeting/MeetingPanel'
+import { conflicts, dayKey, sampleReservations, workdays, type Reservation } from '../meeting/reservations'
 import { MusicPanel } from '../music/MusicPanel'
 import { PeoplePanel } from '../people/PeoplePanel'
 import { FloorPlan } from './FloorPlan'
@@ -35,6 +38,7 @@ const MUSIC_PLAYING: boolean = true
 const GOOD = 'bg-success/15 text-success'
 const WARNING = 'bg-glow/15 text-glow'
 const OFF = 'bg-white/10 text-label-secondary'
+const DANGER = 'bg-danger/15 text-danger'
 
 const Panel = {
   None: 'none',
@@ -43,13 +47,30 @@ const Panel = {
   Devices: 'devices',
   Energy: 'energy',
   Music: 'music',
+  Meeting: 'meeting',
 } as const
 type Panel = (typeof Panel)[keyof typeof Panel]
 
-export function Overview() {
+export function Overview({ day }: { day: number }) {
   const [panel, setPanel] = useState<Panel>(Panel.None)
   const toggle = (next: Panel) => setPanel((current) => (current === next ? Panel.None : next))
   const close = () => setPanel(Panel.None)
+
+  const [now] = useState(() => new Date())
+  const [reservations, setReservations] = useState(() => sampleReservations(workdays(now, 5)))
+  const book = (reservation: Reservation) => setReservations((current) => [...current, reservation])
+
+  const moment = new Date(now)
+  moment.setDate(now.getDate() + day)
+  if (day !== 0) moment.setHours(10, 0, 0, 0)
+
+  const minutesNow = moment.getHours() * 60 + moment.getMinutes()
+  const today = reservations.filter((reservation) => reservation.day === dayKey(moment))
+  const happening = today.filter((reservation) => reservation.start <= minutesNow && minutesNow < reservation.end)
+  const meetingNow = happening[0]
+  const doubleBooked = conflicts(happening).size > 0
+  const meetingTone = doubleBooked ? WARNING : meetingNow ? DANGER : GOOD
+  const meetingValue = doubleBooked ? 'Double booked' : meetingNow ? 'In use' : 'Free'
 
   const anyoneIn = PRESENT > 0
 
@@ -75,6 +96,9 @@ export function Overview() {
       {panel === Panel.Devices && <DevicesPanel onClose={close} />}
       {panel === Panel.Energy && <EnergyPanel onClose={close} />}
       {panel === Panel.Music && <MusicPanel onClose={close} />}
+      {panel === Panel.Meeting && (
+        <MeetingPanel now={now} moment={moment} reservations={reservations} onBook={book} onClose={close} />
+      )}
 
       <nav className="fixed inset-x-0 bottom-6 z-10 flex justify-center px-4">
         <div className="glass flex max-w-full gap-1 overflow-x-auto rounded-full p-1.5">
@@ -122,6 +146,15 @@ export function Overview() {
             detail="Office speaker"
             selected={panel === Panel.Music}
             onClick={() => toggle(Panel.Music)}
+          />
+          <StatPill
+            icon={CalendarIcon}
+            tone={meetingTone}
+            label="Meeting room"
+            value={meetingValue}
+            detail={meetingNow ? meetingNow.title : 'No meeting right now'}
+            selected={panel === Panel.Meeting}
+            onClick={() => toggle(Panel.Meeting)}
           />
         </div>
       </nav>

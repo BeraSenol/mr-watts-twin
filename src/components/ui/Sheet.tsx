@@ -19,7 +19,7 @@ export function Sheet({ title, subtitle, onClose, children }: Props) {
   return (
     <section
       aria-label={title}
-      className="glass fixed inset-x-0 bottom-24 z-10 mx-auto flex max-h-[calc(100dvh-240px)] w-[min(760px,calc(100vw-32px))] animate-sheet-in flex-col rounded-[28px]"
+      className="glass fixed inset-x-0 top-36 bottom-28 z-20 m-auto flex h-fit max-h-[calc(100dvh-256px)] w-[min(760px,calc(100vw-32px))] animate-sheet-in flex-col rounded-[28px]"
     >
       <header className="flex items-start justify-between gap-4 px-5 pt-5 pb-4">
         <div>

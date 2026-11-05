@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type ComponentType, type SVGProps } from 'react'
+import { BackwardIcon, ForwardIcon, PauseIcon, PlayIcon } from '../../components/icons/symbols'
 import { List, Row } from '../../components/ui/List'
 import { Sheet } from '../../components/ui/Sheet'
 
@@ -12,17 +13,22 @@ const UP_NEXT = [
 
 const time = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 
-function ControlButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+type ControlProps = {
+  icon: ComponentType<SVGProps<SVGSVGElement>>
+  label: string
+  size: string
+  onClick: () => void
+}
+
+function ControlButton({ icon: Icon, label, size, onClick }: ControlProps) {
   return (
     <button
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="grid size-12 place-items-center rounded-full transition-colors hover:bg-white/10 active:scale-95"
+      className="grid size-14 place-items-center rounded-full transition-[background-color,scale] hover:bg-white/10 active:scale-90"
     >
-      <svg viewBox="0 0 24 24" className="size-6" fill="currentColor">
-        {children}
-      </svg>
+      <Icon className={size} />
     </button>
   )
 }
@@ -52,15 +58,14 @@ export function MusicPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="flex items-center justify-center gap-6">
-        <ControlButton label="Previous" onClick={() => {}}>
-          <path d="M5 5 H7 V19 H5 Z M20 5 V19 L8.5 12 Z" />
-        </ControlButton>
-        <ControlButton label={playing ? 'Pause' : 'Play'} onClick={() => setPlaying(!playing)}>
-          {playing ? <path d="M6 4 H10 V20 H6 Z M14 4 H18 V20 H14 Z" /> : <path d="M7 4 L20 12 L7 20 Z" />}
-        </ControlButton>
-        <ControlButton label="Next" onClick={() => {}}>
-          <path d="M17 5 H19 V19 H17 Z M4 5 V19 L15.5 12 Z" />
-        </ControlButton>
+        <ControlButton icon={BackwardIcon} label="Previous" size="h-5 w-6" onClick={() => {}} />
+        <ControlButton
+          icon={playing ? PauseIcon : PlayIcon}
+          label={playing ? 'Pause' : 'Play'}
+          size="h-7 w-7"
+          onClick={() => setPlaying(!playing)}
+        />
+        <ControlButton icon={ForwardIcon} label="Next" size="h-5 w-6" onClick={() => {}} />
       </div>
 
       <List title="Up next">
